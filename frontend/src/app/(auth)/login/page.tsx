@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowRight } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -9,6 +10,7 @@ import { z } from "zod";
 
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
+import { Notice } from "@/components/settings/ui";
 import { authApi } from "@/lib/api/auth";
 import { ApiError, setAccessToken } from "@/lib/api/client";
 
@@ -45,10 +47,7 @@ function LoginForm({ registered }: LoginFormProps) {
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+    defaultValues: { email: "", password: "" },
   });
 
   async function onSubmit(values: LoginFormValues) {
@@ -76,40 +75,25 @@ function LoginForm({ registered }: LoginFormProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1.5 text-center">
-        <h1 className="text-2xl font-bold tracking-tight text-ink md:text-3xl">
-          Welcome back
-        </h1>
-        <p className="text-sm text-muted">
-          Access your personal finance dashboard.
-        </p>
+    <div>
+      <p className="eyebrow">Log in</p>
+      <h1 className="mt-3 text-[32px] font-[380] leading-[1.1] tracking-[-0.025em]">
+        Welcome back.
+        <span className="text-ghost"> Your dashboard is waiting.</span>
+      </h1>
+
+      <div className="mt-8 space-y-3">
+        <Notice show={registered} tone="success">
+          Registered successfully. Please log in.
+        </Notice>
+        <Notice show={Boolean(formError)} tone="error">
+          {formError}
+        </Notice>
       </div>
 
-      {registered ? (
-        <p
-          className="rounded-panel bg-accent px-4 py-3 text-sm font-semibold text-success"
-          role="status"
-        >
-          Registered successfully. Please log in.
-        </p>
-      ) : null}
-
-      <form className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
-        {formError ? (
-          <p
-            className="rounded-panel bg-danger-surface px-4 py-3 text-sm font-semibold text-white"
-            role="alert"
-          >
-            {formError}
-          </p>
-        ) : null}
-
-        <div className="space-y-1.5">
-          <label
-            className="block text-xs font-semibold uppercase tracking-wider text-muted"
-            htmlFor="email"
-          >
+      <form className="mt-6 space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <div>
+          <label className="label" htmlFor="email">
             Email
           </label>
           <input
@@ -119,21 +103,18 @@ function LoginForm({ registered }: LoginFormProps) {
             placeholder="you@example.com"
             aria-invalid={errors.email ? "true" : "false"}
             aria-describedby={errors.email ? "email-error" : undefined}
-            className="w-full rounded-control border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition-all placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/20"
+            className="field"
             {...register("email")}
           />
           {errors.email ? (
-            <p className="text-xs font-medium text-danger" id="email-error" role="alert">
+            <p className="mt-1.5 text-[12px] text-red-fg" id="email-error" role="alert">
               {errors.email.message}
             </p>
           ) : null}
         </div>
 
-        <div className="space-y-1.5">
-          <label
-            className="block text-xs font-semibold uppercase tracking-wider text-muted"
-            htmlFor="password"
-          >
+        <div>
+          <label className="label" htmlFor="password">
             Password
           </label>
           <input
@@ -143,33 +124,28 @@ function LoginForm({ registered }: LoginFormProps) {
             placeholder="••••••••"
             aria-invalid={errors.password ? "true" : "false"}
             aria-describedby={errors.password ? "password-error" : undefined}
-            className="w-full rounded-control border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition-all placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/20"
+            className="field"
             {...register("password")}
           />
           {errors.password ? (
-            <p
-              className="text-xs font-medium text-danger"
-              id="password-error"
-              role="alert"
-            >
+            <p className="mt-1.5 text-[12px] text-red-fg" id="password-error" role="alert">
               {errors.password.message}
             </p>
           ) : null}
         </div>
 
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full h-11 px-4 text-sm font-semibold"
-        >
+        <Button type="submit" size="lg" disabled={isSubmitting} className="group w-full">
           {isSubmitting ? <Spinner /> : null}
-          {isSubmitting ? "Logging in..." : "Log in"}
+          {isSubmitting ? "Logging in…" : "Log in"}
+          {!isSubmitting ? (
+            <ArrowRight size={14} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
+          ) : null}
         </Button>
       </form>
 
-      <p className="text-center text-sm text-muted">
+      <p className="mt-8 border-t border-line pt-6 text-[14px] text-muted">
         New here?{" "}
-        <Link className="font-semibold text-primary transition-colors hover:text-primary-hover" href="/register">
+        <Link className="text-foreground underline-offset-4 hover:underline" href="/register">
           Create an account
         </Link>
       </p>

@@ -1,7 +1,7 @@
 'use client';
 
-import { Pencil, Trash2, Lock } from 'lucide-react';
-import { LucideIcon } from './IconPicker';
+import { Lock, PencilSimple, Trash } from '@phosphor-icons/react';
+import { CategoryIcon } from './IconPicker';
 import { Category } from '../../lib/api/categories';
 import { cn } from '../../lib/utils/cn';
 
@@ -14,60 +14,49 @@ interface CategoryRowProps {
 
 export function CategoryRow({ category, onEdit, onDelete, isDeleting }: CategoryRowProps) {
   return (
-    <div className="flex items-center gap-3 p-3 bg-surface rounded-control border border-gray-200 hover:border-gray-300 transition-colors">
-
-      {/* Color dot + icon */}
-      <div
-        className="flex items-center justify-center w-9 h-9 rounded-full flex-shrink-0 text-white"
-        style={{ backgroundColor: category.color }}
+    <div className="group flex items-center gap-3.5 rounded-[8px] px-3 py-2.5 transition-colors hover:bg-surface-2">
+      <span
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px]"
+        style={{ backgroundColor: `color-mix(in srgb, ${category.color} 14%, transparent)`, color: category.color }}
       >
-        <LucideIcon name={category.icon} size={16} />
-      </div>
+        <CategoryIcon name={category.icon} size={16} />
+      </span>
 
-      {/* Name + type badge */}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium truncate">
-            {category.name}
-          </span>
+          <span className="truncate text-[14px] text-foreground">{category.name}</span>
           {category.isDefault && (
-            <span className="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
-              <Lock size={10} />
-              default
+            <span className="tag bg-surface-3 text-muted">
+              <Lock size={9} weight="bold" />
+              Default
             </span>
           )}
         </div>
-        <span
-          className={cn(
-            'text-xs font-medium capitalize',
-            category.type === 'income' ? 'text-green-600' : 'text-red-500',
-          )}
-        >
-          {category.type}
-        </span>
+        <span className="text-[12px] capitalize text-muted">{category.type}</span>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1 flex-shrink-0">
+      <div className="flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
         <button
+          type="button"
           onClick={() => onEdit(category)}
-          className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+          aria-label={`Edit ${category.name}`}
           title="Edit category"
+          className="grid h-8 w-8 place-items-center rounded-[6px] text-muted transition-colors hover:bg-surface hover:text-foreground"
         >
-          <Pencil size={15} />
+          <PencilSimple size={14} weight="bold" />
         </button>
         <button
+          type="button"
           onClick={() => onDelete(category)}
           disabled={category.isDefault || isDeleting}
+          aria-label={`Delete ${category.name}`}
           className={cn(
-            'p-1.5 rounded-md transition-colors',
-            category.isDefault
-              ? 'text-gray-200 cursor-not-allowed'
-              : 'text-gray-400 hover:text-red-500 hover:bg-red-50',
+            'grid h-8 w-8 place-items-center rounded-[6px] transition-colors',
+            category.isDefault ? 'cursor-not-allowed text-ghost' : 'text-muted hover:bg-red-bg hover:text-red-fg',
           )}
           title={category.isDefault ? 'Default categories cannot be deleted' : 'Delete category'}
         >
-          <Trash2 size={15} />
+          <Trash size={14} weight="bold" />
         </button>
       </div>
     </div>

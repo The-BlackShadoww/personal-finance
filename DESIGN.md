@@ -1,21 +1,21 @@
-# Arcade
+# Natural — Powering agentic payments
 
 ## Mission
-Create implementation-ready, token-driven UI guidance for Arcade that is optimized for consistency, accessibility, and fast delivery across marketing site.
+Create implementation-ready, token-driven UI guidance for Natural — Powering agentic payments that is optimized for consistency, accessibility, and fast delivery across e-commerce storefront.
 
 ## Brand
-- Product/brand: Arcade
-- URL: https://www.arcade.software/
-- Audience: buyers, teams, and decision-makers
-- Product surface: marketing site
+- Product/brand: Natural — Powering agentic payments
+- URL: https://www.natural.com/
+- Audience: online shoppers and consumers
+- Product surface: e-commerce storefront
 
 ## Style Foundations
-- Visual style: structured, tokenized, content-first
-- Main font style: `font.family.primary=Inter Variable`, `font.family.stack=Inter Variable, Arial, sans-serif`, `font.size.base=14px`, `font.weight.base=400`, `font.lineHeight.base=17.5px`
-- Typography scale: `font.size.xs=14px`, `font.size.sm=16px`, `font.size.md=18px`, `font.size.lg=20px`, `font.size.xl=24px`, `font.size.2xl=32px`, `font.size.3xl=36px`, `font.size.4xl=48px`
-- Color palette: `color.text.primary=#4b5563`, `color.text.secondary=#111827`, `color.text.tertiary=#6b7280`, `color.text.inverse=#333333`, `color.surface.base=#000000`, `color.surface.muted=#ffffff`, `color.surface.raised=#2142e7`, `color.surface.strong=#f3f4f6`, `color.border.strong=#e5e7eb`
-- Spacing scale: `space.1=4px`, `space.2=6px`, `space.3=6.4px`, `space.4=8px`, `space.5=10px`, `space.6=16px`, `space.7=24px`, `space.8=32px`
-- Radius/shadow/motion tokens: `radius.xs=12px`, `radius.sm=16px`, `radius.md=50px`, `radius.lg=72px`, `radius.xl=80px` | `shadow.1=rgba(17, 24, 39, 0.12) 0px 0px 0px 1px`, `shadow.2=rgba(17, 24, 39, 0.04) 0px 32px 32px 0px, rgba(17, 24, 39, 0.04) 0px 16px 16px 0px, rgba(17, 24, 39, 0.04) 0px 8px 8px 0px, rgba(17, 24, 39, 0.04) 0px 4px 4px -2px, rgba(17, 24, 39, 0.04) 0px 2px 2px -1px, rgba(17, 24, 39, 0.16) 0px 0px 0px 1px`, `shadow.3=rgba(17, 24, 39, 0.04) 0px 32px 32px 0px, rgba(17, 24, 39, 0.04) 0px 16px 16px 0px, rgba(17, 24, 39, 0.04) 0px 8px 8px 0px, rgba(17, 24, 39, 0.04) 0px 4px 4px -2px, rgba(17, 24, 39, 0.04) 0px 2px 2px -1px, rgb(24, 47, 165) 0px 0px 0px 1px`, `shadow.4=rgb(24, 47, 165) 0px 0px 0px 1px, rgba(17, 24, 39, 0.04) 0px 2px 2px -2px, rgba(17, 24, 39, 0.04) 0px 4px 4px 0px, rgba(17, 24, 39, 0.04) 0px 8px 8px 0px, rgba(17, 24, 39, 0.04) 0px 16px 16px 0px, rgba(17, 24, 39, 0.04) 0px 32px 32px 0px` | `motion.duration.instant=150ms`, `motion.duration.fast=167ms`, `motion.duration.normal=200ms`, `motion.duration.slow=350ms`
+- Visual style: clean, functional, implementation-oriented
+- Main font style: `font.family.primary=STK Miso`, `font.family.stack=STK Miso, STK Miso fallback, monospace`, `font.size.base=15px`, `font.weight.base=400`, `font.lineHeight.base=24px`
+- Typography scale: `font.size.xs=14px`, `font.size.sm=15px`, `font.size.md=18px`, `font.size.lg=32px`, `font.size.xl=40px`
+- Color palette: `color.text.primary=#161514`, `color.text.secondary=#ffffff`, `color.text.tertiary=#71706f`, `color.text.inverse=#111400`, `color.surface.base=#000000`, `color.surface.strong=#f6f6f6`
+- Spacing scale: `space.1=2px`, `space.2=4px`, `space.3=6px`, `space.4=8px`, `space.5=9px`, `space.6=12px`, `space.7=16px`
+- Radius/shadow/motion tokens: `radius.xs=1.5px`, `radius.sm=2px`, `radius.md=4px`, `radius.lg=20px` | `motion.duration.instant=100ms`, `motion.duration.fast=150ms`
 
 ## Accessibility
 - Target: WCAG 2.2 AA
@@ -60,7 +60,7 @@ Concise, confident, implementation-focused.
 - Include keyboard, pointer, and touch behavior.
 - Include spacing and typography token requirements.
 - Include long-content, overflow, and empty-state handling.
-- Include known page component density: links (77), buttons (18), cards (5), inputs (3), navigation (2).
+- Include known page component density: cards (270), links (83), buttons (47), navigation (2), lists (1).
 
 
 ## Quality Gates

@@ -1,11 +1,132 @@
 "use client";
 
-import { ArrowUpRight, CircleDollarSign, Sparkles, Target } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
+import { ArrowUpRight, Plus, Target } from "@phosphor-icons/react";
+import { motion } from "framer-motion";
 import { PageHeader } from "@/components/layouts/PageHeader";
+import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { Button } from "@/components/ui/Button";
 
+const PREVIEW = [
+  { name: "Housing", planned: 1400, spent: 1400, color: "var(--ds-series-net)" },
+  { name: "Groceries", planned: 520, spent: 364, color: "var(--ds-series-income)" },
+  { name: "Transport", planned: 180, spent: 151, color: "var(--ds-series-expense)" },
+];
+
 export default function BudgetsPage() {
-  const reduceMotion = useReducedMotion();
-  return <div className="space-y-8"><div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><PageHeader title="Give every dollar a direction." description="Build a spending plan around the things you want your money to make possible."/><Button><Target className="h-4 w-4"/>Create a budget</Button></div><motion.section initial={reduceMotion ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .25 }} className="grid gap-4 lg:grid-cols-[1.05fr_.95fr]"><article className="glass-panel relative overflow-hidden bg-ink p-7 text-white md:p-9"><div aria-hidden="true" className="absolute -right-10 -top-12 h-52 w-52 rounded-full bg-primary/35 blur-3xl"/><div className="relative"><span className="inline-flex rounded-control border border-white/15 bg-white/10 px-3 py-1 text-xs text-white/70">This month</span><h2 className="mt-6 max-w-md text-3xl font-semibold leading-[.98] tracking-[-.05em]">Start with what matters, then make room for the rest.</h2><p className="mt-4 max-w-lg text-sm leading-relaxed text-white/65">A budget is your plan for the money you have—not a judgment about the money you spend.</p><div className="mt-9 grid grid-cols-2 gap-3 border-t border-white/15 pt-5"><div><p className="text-xs text-white/55">Planned</p><p className="mt-1 text-xl font-semibold">$0.00</p></div><div><p className="text-xs text-white/55">Remaining</p><p className="mt-1 text-xl font-semibold">$0.00</p></div></div></div></article><article className="app-panel flex flex-col justify-between p-7 md:p-9"><div><Sparkles className="h-5 w-5 text-primary"/><h2 className="mt-7 text-2xl font-semibold tracking-[-.04em]">Your first budget is one good decision away.</h2><p className="mt-3 max-w-md text-sm leading-relaxed text-muted">Choose a category, set an amount, and you’ll have a clear signal every time you spend.</p></div><Button className="mt-8 w-fit"><CircleDollarSign className="h-4 w-4"/>Set up your first budget</Button></article></motion.section><section className="app-panel overflow-hidden"><div className="flex flex-col gap-3 border-b border-line px-6 py-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-lg font-semibold tracking-[-.03em]">Budget categories</h2><p className="mt-1 text-sm text-muted">Your planned spending will appear here.</p></div><span className="w-fit rounded-control bg-subtle px-3 py-1 text-xs font-medium text-muted">No active budgets</span></div><div className="grid place-items-center px-6 py-16 text-center"><div className="grid h-12 w-12 place-items-center rounded-card bg-accent text-primary"><Target className="h-5 w-5"/></div><h3 className="mt-5 text-xl font-semibold tracking-[-.03em]">Create a plan you can actually use.</h3><p className="mt-2 max-w-sm text-sm leading-relaxed text-muted">Start with a single category. You can add more as your plan takes shape.</p><button className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary-hover">Create a budget <ArrowUpRight className="h-4 w-4"/></button></div></section></div>;
+  return (
+    <div className="space-y-10">
+      <PageHeader
+        eyebrow="Budgets"
+        title="Give every dollar a direction."
+        aside="Build a spending plan around what you want your money to make possible."
+        actions={
+          <Button>
+            <Target size={14} weight="bold" />
+            Create a budget
+          </Button>
+        }
+      />
+
+      <Stagger className="grid gap-3 lg:grid-cols-12">
+        <StaggerItem className="lg:col-span-7">
+          <article className="card-muted relative h-full overflow-clip p-7 md:p-9">
+            <div className="dot-grid absolute inset-0 opacity-60 [mask-image:radial-gradient(ellipse_at_bottom_right,black,transparent_65%)]" aria-hidden="true" />
+            <div className="relative">
+              <span className="tag bg-surface text-muted">This month</span>
+              <h2 className="mt-6 max-w-md text-[28px] font-[380] leading-[1.15] tracking-[-0.025em]">
+                Start with what matters,
+                <span className="text-ghost"> then make room for the rest.</span>
+              </h2>
+              <p className="mt-4 max-w-lg text-[14px] leading-relaxed text-muted">
+                A budget is your plan for the money you have — not a judgment about the money you spend.
+              </p>
+              <div className="mt-10 grid grid-cols-2 gap-6 border-t border-line-strong/70 pt-6">
+                <div>
+                  <p className="text-[13px] text-muted">Planned</p>
+                  <p className="num mt-1 text-[26px] tracking-[-0.02em]">$0.00</p>
+                </div>
+                <div>
+                  <p className="text-[13px] text-muted">Remaining</p>
+                  <p className="num mt-1 text-[26px] tracking-[-0.02em]">$0.00</p>
+                </div>
+              </div>
+            </div>
+          </article>
+        </StaggerItem>
+
+        <StaggerItem className="lg:col-span-5">
+          <article className="card flex h-full flex-col justify-between p-7 md:p-9">
+            <div>
+              <p className="eyebrow">What it will look like</p>
+              <ul className="mt-6 space-y-5" aria-hidden="true">
+                {PREVIEW.map((item, index) => (
+                  <li key={item.name}>
+                    <div className="flex items-center justify-between text-[13px]">
+                      <span className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+                        {item.name}
+                      </span>
+                      <span className="num text-muted">
+                        ${item.spent} <span className="text-faint">/ ${item.planned}</span>
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                      <motion.div
+                        className="h-full rounded-full"
+                        style={{ backgroundColor: item.color, originX: 0 }}
+                        initial={{ scaleX: 0 }}
+                        whileInView={{ scaleX: item.spent / item.planned }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.3 + index * 0.12 }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="mt-10">
+              <h2 className="text-[18px] tracking-[-0.01em]">Your first budget is one good decision away.</h2>
+              <p className="mt-2 text-[14px] leading-relaxed text-muted">
+                Choose a category, set an amount, and you’ll have a clear signal every time you spend.
+              </p>
+              <Button variant="secondary" className="mt-6">
+                <Plus size={14} weight="bold" />
+                Set up your first budget
+              </Button>
+            </div>
+          </article>
+        </StaggerItem>
+      </Stagger>
+
+      <Reveal>
+        <section className="card overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-line px-6 py-5 sm:flex-row sm:items-center sm:justify-between md:px-7">
+            <div>
+              <h2 className="text-[15px]">Budget categories</h2>
+              <p className="text-[13px] text-muted">Your planned spending will appear here.</p>
+            </div>
+            <span className="tag w-fit bg-surface-2 text-muted">No active budgets</span>
+          </div>
+          <div className="grid place-items-center px-6 py-20 text-center">
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0 }}
+              whileInView={{ scale: 1, opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ type: "spring", stiffness: 260, damping: 18 }}
+              className="grid h-12 w-12 place-items-center rounded-[10px] border border-line bg-surface-2"
+            >
+              <Target size={18} weight="bold" />
+            </motion.div>
+            <h3 className="mt-5 text-[18px] tracking-[-0.01em]">Create a plan you can actually use.</h3>
+            <p className="mt-2 max-w-sm text-[14px] leading-relaxed text-muted">
+              Start with a single category. You can add more as your plan takes shape.
+            </p>
+            <button className="mt-6 inline-flex items-center gap-1.5 text-[14px] text-foreground underline-offset-4 hover:underline">
+              Create a budget <ArrowUpRight size={13} weight="bold" />
+            </button>
+          </div>
+        </section>
+      </Reveal>
+    </div>
+  );
 }

@@ -31,7 +31,7 @@ export function monthNameShort(month: number): string {
 // Returns a CSS color class string based on whether a value is positive,
 // negative, or zero. Used for savings amounts.
 export function savingsColorClass(amount: number): string {
-  if (amount > 0) return "text-green-600";
-  if (amount < 0) return "text-red-500";
-  return "text-gray-500";
+  if (amount > 0) return "text-green-fg";
+  if (amount < 0) return "text-red-fg";
+  return "text-muted";
 }

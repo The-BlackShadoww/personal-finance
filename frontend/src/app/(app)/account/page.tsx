@@ -1,314 +1,195 @@
 "use client";
 
-import { Target } from "lucide-react";
-import { ModernChart, chartBase } from "@/components/charts/ModernChart";
+import { ArrowDownLeft, ArrowUpRight, GearSix } from "@phosphor-icons/react";
+import { motion } from "framer-motion";
+import Link from "next/link";
+import { useState } from "react";
+import { DonutChart } from "@/components/charts/DonutChart";
+import { Panel } from "@/components/dashboard/primitives";
 import { PageHeader } from "@/components/layouts/PageHeader";
+import { AnimatedNumber, Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
+import { buttonClass } from "@/components/ui/Button";
+import { CategoryIcon } from "@/components/categories/IconPicker";
 import { useAccountSummary } from "@/lib/hooks/useAccount";
+import { cn } from "@/lib/utils/cn";
 import { formatDollar } from "@/lib/utils/format";
 
 export default function AccountPage() {
   const { data: summary, isLoading } = useAccountSummary();
+  const [active, setActive] = useState<string | null>(null);
+
   const allocations = summary
     ? [
         ...summary.sectors,
         {
           ...summary.cash,
           id: "cash",
-          targetAmountCents: null,
-          progressPercent: null,
+          targetAmountCents: null as number | null,
+          progressPercent: null as number | null,
         },
       ]
     : [];
   const total = allocations.reduce((sum, item) => sum + item.allocatedCents, 0);
-  const options = {
-    ...chartBase(),
-    labels: allocations.map((item) => item.name),
-    colors: allocations.map((item) => item.color),
-    stroke: { colors: ["var(--ds-surface)"], width: 5 },
-    plotOptions: {
-      pie: {
-        donut: {
-          size: "73%",
-          labels: {
-            show: true,
-            total: {
-              show: true,
-              label: "Allocated",
-              formatter: () => formatDollar(total / 100),
-            },
-          },
-        },
-      },
-    },
-    tooltip: {
-      theme: "dark" as const,
-      y: { formatter: (value: number) => formatDollar(value / 100) },
-    },
-  };
+  const signedDollar = (cents: number) => `${cents < 0 ? "-" : ""}${formatDollar(cents / 100)}`;
+
   return (
-    <div className="space-y-7">
+    <div className="space-y-10">
       <PageHeader
-        title="Your account"
-        description="See how your available money is distributed across the places and goals you care about."
+        eyebrow="Account"
+        title="Your balance, organized."
+        aside="See how available money is distributed across the goals you care about."
+        actions={
+          <Link href="/settings?tab=account" className={buttonClass({ variant: "secondary" })}>
+            <GearSix size={15} weight="bold" /> Manage sectors
+          </Link>
+        }
       />
+
       {isLoading ? (
-        <div className="h-96 animate-pulse rounded-panel bg-canvas" />
-      ) : !summary ? (
-        <div className="app-panel p-10 text-muted">
-          Your account summary is not available yet.
+        <div className="space-y-3">
+          <div className="skeleton h-56" />
+          <div className="skeleton h-80" />
         </div>
+      ) : !summary ? (
+        <div className="card-muted p-10 text-muted">Your account summary is not available yet.</div>
       ) : (
         <>
-          <section className="glass-panel glass-panel--strong relative overflow-hidden p-7 md:p-9">
-            <div
-              aria-hidden="true"
-              className="absolute -right-10 -top-14 h-48 w-48 rounded-full bg-primary/35 blur-3xl"
-            />
-            <p className="relative text-sm text-white/65">Available balance</p>
-            <p className="relative mt-3 text-5xl font-semibold tracking-[-.06em] text-white">
-              {formatDollar(summary.currentBalanceCents / 100)}
-            </p>
-            <div className="relative mt-8 grid grid-cols-2 gap-3 border-t border-white/15 pt-5 text-sm">
-              <div>
-                <p className="text-white/55">Money in</p>
-                <p className="mt-1 font-semibold text-[#82e0ac]">
-                  {formatDollar(summary.totalIncomeCents / 100)}
+          <Stagger className="grid gap-3 lg:grid-cols-12">
+            <StaggerItem className="lg:col-span-8">
+              <section className="card-muted relative h-full overflow-clip p-7 md:p-9">
+                <div className="dot-grid absolute inset-0 opacity-50 [mask-image:radial-gradient(ellipse_at_top_right,black,transparent_60%)]" aria-hidden="true" />
+                <p className="eyebrow relative">Available balance</p>
+                <AnimatedNumber
+                  value={summary.currentBalanceCents / 100}
+                  format={(v) => `${v < 0 ? "-" : ""}${formatDollar(v)}`}
+                  duration={1.4}
+                  className="num relative mt-5 block text-[48px] font-[360] leading-none tracking-[-0.045em] sm:text-[64px] md:text-[72px]"
+                />
+                <p className="relative mt-4 text-[13px] text-muted">
+                  Started from <span className="num text-foreground">{signedDollar(summary.initialBalanceCents)}</span>
+                  {summary.isLowBalance ? (
+                    <span className="tag ml-3 bg-yellow-bg text-yellow-fg">Below {formatDollar(summary.lowBalanceThresholdCents / 100)}</span>
+                  ) : null}
                 </p>
-              </div>
-              <div>
-                <p className="text-white/55">Money out</p>
-                <p className="mt-1 font-semibold text-[#ffd09f]">
-                  {formatDollar(summary.totalExpenseCents / 100)}
-                </p>
-              </div>
-            </div>
-          </section>
-          <section className="grid gap-4 lg:grid-cols-[1.4fr_.6fr]">
-            <article className="app-panel overflow-hidden">
-              <div className="border-b border-line px-6 py-5">
-                <h2 className="font-semibold tracking-[-.02em]">
-                  Allocation details
-                </h2>
-              </div>
-              <div className="divide-y divide-line">
-                {allocations.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-4 px-6 py-5"
-                  >
-                    <span
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: item.color }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="truncate font-medium">{item.name}</p>
-                        <p className="font-semibold">
-                          {formatDollar(item.allocatedCents / 100)}
-                        </p>
-                      </div>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-canvas">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${item.percentage}%`,
-                            backgroundColor: item.color,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <span className="w-10 text-right text-sm text-muted">
-                      {item.percentage}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </article>
-            <article className="app-panel p-6 overflow-hidden">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold tracking-[-.03em]">
-                    Allocation
-                  </h2>
-                  <p className="mt-1 text-sm text-muted">
-                    How your balance is organized
-                  </p>
-                </div>
-                <Target className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex items-center justify-center h-full">
+              </section>
+            </StaggerItem>
+            <StaggerItem className="grid gap-3 lg:col-span-4">
+              <FlowCard label="Money in" cents={summary.totalIncomeCents} tone="income" />
+              <FlowCard label="Money out" cents={summary.totalExpenseCents} tone="expense" />
+            </StaggerItem>
+          </Stagger>
+
+          <div className="grid gap-3 lg:grid-cols-12">
+            <Reveal className="lg:col-span-5">
+              <Panel title="Allocation" subtitle="How your balance is organized" className="h-full">
                 {allocations.length ? (
-                  <ModernChart
-                    type="donut"
-                    height={270}
-                    options={options}
-                    series={allocations.map((item) => item.allocatedCents)}
-                  />
+                  <div className="flex h-full flex-col items-center justify-center gap-6 py-2">
+                    <DonutChart
+                      size={248}
+                      thickness={24}
+                      slices={allocations.map((item) => ({
+                        id: item.id,
+                        label: item.name,
+                        value: item.allocatedCents / 100,
+                        color: item.color,
+                      }))}
+                      centerLabel="Allocated"
+                      formatValue={(v) => formatDollar(v)}
+                      activeId={active}
+                      onActiveChange={setActive}
+                      ariaLabel="Balance allocation by sector"
+                    />
+                    <p className="num text-[13px] text-muted">{allocations.length} buckets · {formatDollar(total / 100)} total</p>
+                  </div>
                 ) : (
-                  <div className="flex h-[270px] items-center justify-center text-sm text-muted">
+                  <div className="flex h-[270px] items-center justify-center text-[14px] text-muted">
                     No allocations to show yet.
                   </div>
                 )}
-              </div>
-            </article>
-          </section>
+              </Panel>
+            </Reveal>
+
+            <Reveal className="lg:col-span-7" delay={0.06}>
+              <section className="card h-full overflow-hidden">
+                <div className="flex items-center justify-between border-b border-line px-6 py-5 md:px-7">
+                  <div>
+                    <h2 className="text-[15px]">Allocation details</h2>
+                    <p className="text-[13px] text-muted">Cash receives whatever the sectors leave.</p>
+                  </div>
+                </div>
+                <ul className="divide-y divide-line">
+                  {allocations.map((item, index) => (
+                    <motion.li
+                      key={item.id}
+                      initial={{ opacity: 0, x: -6 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.5, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                      onPointerEnter={() => setActive(item.id)}
+                      onPointerLeave={() => setActive(null)}
+                      className={cn(
+                        "flex items-center gap-4 px-6 py-4 transition-[background-color,opacity] duration-200 md:px-7",
+                        active === item.id && "bg-surface-2/70",
+                        active && active !== item.id && "opacity-50",
+                      )}
+                    >
+                      <span
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px]"
+                        style={{ backgroundColor: `color-mix(in srgb, ${item.color} 14%, transparent)`, color: item.color }}
+                      >
+                        <CategoryIcon name={item.icon} size={16} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="truncate text-[14px]">{item.name}</p>
+                          <p className="num text-[14px]">{formatDollar(item.allocatedCents / 100)}</p>
+                        </div>
+                        <div className="mt-2 flex items-center gap-3">
+                          <div className="h-[3px] flex-1 overflow-hidden rounded-full bg-surface-2">
+                            <motion.div
+                              className="h-full rounded-full"
+                              style={{ backgroundColor: item.color, originX: 0 }}
+                              initial={{ scaleX: 0 }}
+                              whileInView={{ scaleX: Math.max(0, item.percentage) / 100 }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.15 + index * 0.05 }}
+                            />
+                          </div>
+                          <span className="num w-10 text-right text-[12px] text-muted">{item.percentage}%</span>
+                        </div>
+                        {item.targetAmountCents !== null ? (
+                          <p className="num mt-1.5 text-[12px] text-muted">
+                            Goal {formatDollar(item.targetAmountCents / 100)} · {Math.round(item.progressPercent ?? 0)}% reached
+                          </p>
+                        ) : null}
+                      </div>
+                    </motion.li>
+                  ))}
+                </ul>
+              </section>
+            </Reveal>
+          </div>
         </>
       )}
     </div>
   );
 }
 
-// "use client";
-
-// import { Target } from "lucide-react";
-// import { ModernChart, chartBase } from "@/components/charts/ModernChart";
-// import { PageHeader } from "@/components/layouts/PageHeader";
-// import { useAccountSummary } from "@/lib/hooks/useAccount";
-// import { formatDollar } from "@/lib/utils/format";
-
-// export default function AccountPage() {
-//   const { data: summary, isLoading } = useAccountSummary();
-//   const allocations = summary
-//     ? [
-//         ...summary.sectors,
-//         {
-//           ...summary.cash,
-//           id: "cash",
-//           targetAmountCents: null,
-//           progressPercent: null,
-//         },
-//       ]
-//     : [];
-//   const total = allocations.reduce((sum, item) => sum + item.allocatedCents, 0);
-//   const options = {
-//     ...chartBase(),
-//     labels: allocations.map((item) => item.name),
-//     colors: allocations.map((item) => item.color),
-//     stroke: { colors: ["var(--ds-surface)"], width: 5 },
-//     plotOptions: {
-//       pie: {
-//         donut: {
-//           size: "73%",
-//           labels: {
-//             show: true,
-//             total: {
-//               show: true,
-//               label: "Allocated",
-//               formatter: () => formatDollar(total / 100),
-//             },
-//           },
-//         },
-//       },
-//     },
-//     tooltip: {
-//       theme: "dark" as const,
-//       y: { formatter: (value: number) => formatDollar(value / 100) },
-//     },
-//   };
-//   return (
-//     <div className="space-y-7">
-//       <PageHeader
-//         title="Your account"
-//         description="See how your available money is distributed across the places and goals you care about."
-//       />
-//       {isLoading ? (
-//         <div className="h-96 animate-pulse rounded-panel bg-canvas" />
-//       ) : !summary ? (
-//         <div className="app-panel p-10 text-muted">
-//           Your account summary is not available yet.
-//         </div>
-//       ) : (
-//         <>
-//           <section className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
-//             <article className="glass-panel glass-panel--strong relative overflow-hidden p-7 md:p-9">
-//               <div aria-hidden="true" className="absolute -right-10 -top-14 h-48 w-48 rounded-full bg-primary/35 blur-3xl" />
-//               <p className="relative text-sm text-white/65">Available balance</p>
-//               <p className="relative mt-3 text-5xl font-semibold tracking-[-.06em] text-white">
-//                 {formatDollar(summary.currentBalanceCents / 100)}
-//               </p>
-//               <div className="relative mt-8 grid grid-cols-2 gap-3 border-t border-white/15 pt-5 text-sm">
-//                 <div>
-//                   <p className="text-white/55">Money in</p>
-//                   <p className="mt-1 font-semibold text-[#82e0ac]">
-//                     {formatDollar(summary.totalIncomeCents / 100)}
-//                   </p>
-//                 </div>
-//                 <div>
-//                   <p className="text-white/55">Money out</p>
-//                   <p className="mt-1 font-semibold text-[#ffd09f]">
-//                     {formatDollar(summary.totalExpenseCents / 100)}
-//                   </p>
-//                 </div>
-//               </div>
-//             </article>
-//             <article className="app-panel p-6">
-//               <div className="flex items-start justify-between">
-//                 <div>
-//                   <h2 className="text-lg font-semibold tracking-[-.03em]">
-//                     Allocation
-//                   </h2>
-//                   <p className="mt-1 text-sm text-muted">
-//                     How your balance is organized
-//                   </p>
-//                 </div>
-//                 <Target className="h-4 w-4 text-primary" />
-//               </div>
-//               {allocations.length ? (
-//                 <ModernChart
-//                   type="donut"
-//                   height={270}
-//                   options={options}
-//                   series={allocations.map((item) => item.allocatedCents)}
-//                 />
-//               ) : (
-//                 <div className="flex h-[270px] items-center justify-center text-sm text-muted">
-//                   No allocations to show yet.
-//                 </div>
-//               )}
-//             </article>
-//           </section>
-//           <section className="app-panel overflow-hidden">
-//             <div className="border-b border-line px-6 py-5">
-//               <h2 className="font-semibold tracking-[-.02em]">
-//                 Allocation details
-//               </h2>
-//             </div>
-//             <div className="divide-y divide-line">
-//               {allocations.map((item) => (
-//                 <div
-//                   key={item.id}
-//                   className="flex items-center gap-4 px-6 py-5"
-//                 >
-//                   <span
-//                     className="h-3 w-3 rounded-full"
-//                     style={{ backgroundColor: item.color }}
-//                   />
-//                   <div className="min-w-0 flex-1">
-//                     <div className="flex items-center justify-between gap-3">
-//                       <p className="truncate font-medium">{item.name}</p>
-//                       <p className="font-semibold">
-//                         {formatDollar(item.allocatedCents / 100)}
-//                       </p>
-//                     </div>
-//                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-canvas">
-//                       <div
-//                         className="h-full rounded-full"
-//                         style={{
-//                           width: `${item.percentage}%`,
-//                           backgroundColor: item.color,
-//                         }}
-//                       />
-//                     </div>
-//                   </div>
-//                   <span className="w-10 text-right text-sm text-muted">
-//                     {item.percentage}%
-//                   </span>
-//                 </div>
-//               ))}
-//             </div>
-//           </section>
-//         </>
-//       )}
-//     </div>
-//   );
-// }
+function FlowCard({ label, cents, tone }: { label: string; cents: number; tone: "income" | "expense" }) {
+  const Icon = tone === "income" ? ArrowDownLeft : ArrowUpRight;
+  return (
+    <article className="card card-hover flex h-full flex-col justify-between gap-6 p-6">
+      <p className="flex items-center justify-between text-[13px] text-muted">
+        {label}
+        <span className={cn("grid h-7 w-7 place-items-center rounded-full bg-surface-2", tone === "income" ? "text-income" : "text-expense")}>
+          <Icon size={13} weight="bold" />
+        </span>
+      </p>
+      <AnimatedNumber
+        value={cents / 100}
+        format={(v) => formatDollar(v)}
+        className="num block text-[28px] leading-none tracking-[-0.03em]"
+      />
+    </article>
+  );
+}

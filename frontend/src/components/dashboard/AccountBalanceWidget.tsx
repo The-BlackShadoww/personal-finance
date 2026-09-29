@@ -1,119 +1,126 @@
 "use client";
 
 import Link from "next/link";
-import {
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  Settings,
-  TrendingDown,
-  TrendingUp,
-  Wallet,
-} from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, GearSix, Plus, Warning } from "@phosphor-icons/react";
 import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import { SectorsBreakdown } from "@/components/dashboard/SectorsBreakdown";
+import { AnimatedNumber } from "@/components/motion/Reveal";
+import { buttonClass } from "@/components/ui/Button";
 import { useAccountSummary } from "@/lib/hooks/useAccount";
 import { cn } from "@/lib/utils/cn";
 import { formatDollar } from "@/lib/utils/format";
 
-export function AccountBalanceWidget() {
+export function AccountBalanceWidget({ className }: { className?: string }) {
   const { data: summary, isLoading } = useAccountSummary();
   const [open, setOpen] = useState(false);
   const reduceMotion = useReducedMotion();
 
   if (isLoading) {
-    return <div className="h-52 animate-pulse rounded-card bg-canvas" />;
+    return (
+      <div className={cn("card-muted space-y-5 p-7 md:p-8", className)}>
+        <div className="skeleton h-4 w-32" />
+        <div className="skeleton h-14 w-72 max-w-full" />
+        <div className="skeleton h-4 w-56" />
+      </div>
+    );
   }
 
   if (!summary || summary.initialBalanceCents === 0) {
     return (
-      <div className="app-panel border-dashed p-6">
-        <div className="flex items-center gap-3">
-          <Wallet className="text-muted" />
-          <div>
-            <p className="font-semibold">Account not set up yet</p>
-            <p className="text-sm text-muted">
-              Set your initial balance in Settings → Account.
-            </p>
-          </div>
+      <div className={cn("card-muted relative flex flex-col justify-between gap-8 overflow-clip p-7 md:p-8", className)}>
+        <div className="dot-grid absolute inset-0 opacity-60 [mask-image:linear-gradient(to_left,black,transparent_70%)]" aria-hidden="true" />
+        <div className="relative">
+          <p className="eyebrow">Account balance</p>
+          <p className="mt-4 max-w-sm text-[24px] leading-[1.2] tracking-[-0.02em] text-foreground">
+            Your account is not set up yet.
+            <span className="text-ghost"> Add a starting balance to see a running total.</span>
+          </p>
         </div>
+        <Link href="/settings?tab=account" className={buttonClass({ className: "relative w-fit" })}>
+          <Plus size={14} weight="bold" /> Set starting balance
+        </Link>
       </div>
     );
   }
 
   const negative = summary.currentBalanceCents < 0;
   const warning = summary.isLowBalance && !negative;
+
   return (
     <motion.section
-      layout
-      transition={
-        reduceMotion
-          ? { duration: 0 }
-          : { type: "spring", stiffness: 260, damping: 28 }
-      }
-      className="glass-panel glass-panel--strong relative overflow-hidden p-6 md:p-7"
+      className={cn("card-muted relative flex flex-col overflow-clip p-7 md:p-8", className)}
     >
       <div
         aria-hidden="true"
-        className="absolute -right-12 -top-14 h-44 w-44 rounded-full bg-primary/35 blur-3xl"
+        className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,rgb(255_255_255/0.9),transparent)] opacity-70 dark:bg-[radial-gradient(closest-side,rgb(255_255_255/0.04),transparent)]"
       />
-      {(warning || negative) && (
-        <div
-          className={cn(
-            "relative mb-5 flex gap-2 rounded-control border p-3 text-sm",
-            negative
-              ? "border-danger/40 bg-danger/15 text-white"
-              : "border-warning/40 bg-warning/15 text-white",
-          )}
-        >
-          <AlertTriangle size={16} />
-          <span>
-            {negative
-              ? "Your account balance is negative."
-              : `Your balance is below ${formatDollar(summary.lowBalanceThresholdCents / 100)}.`}
-          </span>
-        </div>
-      )}
-
       <div className="relative flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70">Account balance</p>
-          <p className="mt-2 text-5xl font-bold tracking-[-0.06em] text-white md:text-6xl">
-            {negative ? "-" : ""}
-            {formatDollar(Math.abs(summary.currentBalanceCents) / 100)}
-          </p>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <p className="eyebrow">Account balance</p>
+          {negative || warning ? (
+            <span className={cn("tag", negative ? "bg-red-bg text-red-fg" : "bg-yellow-bg text-yellow-fg")}>
+              <Warning size={11} weight="fill" />
+              {negative ? "Negative" : "Low balance"}
+            </span>
+          ) : null}
         </div>
         <Link
           href="/settings?tab=account"
           aria-label="Account settings"
-          className="rounded-control border border-white/15 bg-white/10 p-2.5 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+          title="Account settings"
+          className="grid h-8 w-8 place-items-center rounded-[6px] text-muted transition-colors hover:bg-surface hover:text-foreground"
         >
-          <Settings size={18} />
+          <GearSix size={16} weight="bold" />
         </Link>
       </div>
 
-      <div className="relative mt-6 flex flex-wrap items-center gap-2 text-xs">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-1 font-medium text-white/90">
-          <TrendingUp size={14} className="text-success-bright" />
-          <span>In: {formatDollar(summary.totalIncomeCents / 100)}</span>
-        </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-1 font-medium text-white/90">
-          <TrendingDown size={14} className="text-chart-peach" />
-          <span>Out: {formatDollar(summary.totalExpenseCents / 100)}</span>
-        </span>
-      </div>
+      <AnimatedNumber
+        value={summary.currentBalanceCents / 100}
+        format={(value) => `${value < 0 ? "-" : ""}${formatDollar(value)}`}
+        duration={1.4}
+        className="num relative mt-5 block text-[44px] font-[360] leading-none tracking-[-0.045em] text-foreground sm:text-[56px] md:text-[64px]"
+      />
 
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-        className="relative mt-6 flex items-center gap-2 rounded-control px-1 py-1 text-sm font-semibold text-white transition hover:text-white/70"
-      >
-        Savings sectors{" "}
-        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-      </button>
+      {negative || warning ? (
+        <p className="relative mt-3 text-[13px] text-muted">
+          {negative
+            ? "Your account balance is negative."
+            : `Your balance is below ${formatDollar(summary.lowBalanceThresholdCents / 100)}.`}
+        </p>
+      ) : null}
+
+      <div className="relative mt-auto flex flex-wrap items-center gap-x-6 gap-y-2 pt-8 text-[13px]">
+        <span className="flex items-center gap-2 text-muted">
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-surface text-income">
+            <ArrowDownLeft size={11} weight="bold" />
+          </span>
+          In <span className="num text-foreground">{formatDollar(summary.totalIncomeCents / 100)}</span>
+        </span>
+        <span className="flex items-center gap-2 text-muted">
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-surface text-expense">
+            <ArrowUpRight size={11} weight="bold" />
+          </span>
+          Out <span className="num text-foreground">{formatDollar(summary.totalExpenseCents / 100)}</span>
+        </span>
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          className="ml-auto flex items-center gap-2 rounded-[6px] py-1 text-foreground transition-opacity hover:opacity-70"
+        >
+          Savings sectors
+          <span className="relative grid h-4 w-4 place-items-center" aria-hidden="true">
+            <span className="absolute h-px w-2.5 bg-current" />
+            <motion.span
+              className="absolute h-2.5 w-px bg-current"
+              animate={{ rotate: open ? 90 : 0, opacity: open ? 0 : 1 }}
+              transition={{ duration: 0.25 }}
+            />
+          </span>
+        </button>
+      </div>
 
       <AnimatePresence initial={false}>
         {open && (
@@ -121,11 +128,11 @@ export function AccountBalanceWidget() {
             initial={reduceMotion ? false : { height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="relative overflow-hidden"
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="relative overflow-clip"
           >
-            <div className="mt-4 border-t border-white/15 pt-4">
-              <SectorsBreakdown summary={summary} dark />
+            <div className="mt-6 border-t border-line-strong/60 pt-6">
+              <SectorsBreakdown summary={summary} />
             </div>
           </motion.div>
         )}

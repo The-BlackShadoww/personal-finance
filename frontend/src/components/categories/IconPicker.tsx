@@ -1,11 +1,44 @@
 'use client';
 
-import * as Icons from 'lucide-react';
+import {
+  Airplane,
+  Baby,
+  Bank,
+  Barbell,
+  Book,
+  Briefcase,
+  Car,
+  Coffee,
+  DeviceMobile,
+  Dog,
+  DotsThree,
+  FilmSlate,
+  ForkKnife,
+  Gift,
+  GraduationCap,
+  Heart,
+  House,
+  Laptop,
+  Lightning,
+  Money,
+  MusicNotes,
+  PiggyBank,
+  PlusCircle,
+  Shield,
+  ShoppingCart,
+  Stethoscope,
+  Tag,
+  Television,
+  TrendUp,
+  Wallet,
+  WifiHigh,
+  Wrench,
+  type Icon,
+} from '@phosphor-icons/react';
 import { cn } from '../../lib/utils/cn';
 
-// The list of icon identifiers we support.
-// These are lucide-react icon names in kebab-case.
-// We support a curated list — not all 1,000+ lucide icons.
+// Icon identifiers are stored as strings on categories and sectors. The keys
+// are unchanged so existing records keep rendering; only the artwork differs.
 export const SUPPORTED_ICONS = [
   'briefcase', 'laptop', 'trending-up', 'plus-circle',
   'shopping-cart', 'home', 'zap', 'car', 'film',
@@ -17,22 +50,45 @@ export const SUPPORTED_ICONS = [
 
 export type IconName = typeof SUPPORTED_ICONS[number];
 
-// Convert kebab-case icon name to PascalCase for lucide-react import.
-// 'shopping-cart' → 'ShoppingCart'
-function toPascalCase(name: string): string {
-  return name
-    .split('-')
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('');
-}
+const ICONS: Record<string, Icon> = {
+  briefcase: Briefcase,
+  laptop: Laptop,
+  'trending-up': TrendUp,
+  'plus-circle': PlusCircle,
+  'shopping-cart': ShoppingCart,
+  home: House,
+  zap: Lightning,
+  car: Car,
+  film: FilmSlate,
+  heart: Heart,
+  'more-horizontal': DotsThree,
+  tag: Tag,
+  coffee: Coffee,
+  utensils: ForkKnife,
+  book: Book,
+  plane: Airplane,
+  gift: Gift,
+  music: MusicNotes,
+  dumbbell: Barbell,
+  baby: Baby,
+  dog: Dog,
+  'graduation-cap': GraduationCap,
+  stethoscope: Stethoscope,
+  wrench: Wrench,
+  smartphone: DeviceMobile,
+  tv: Television,
+  wifi: WifiHigh,
+  shield: Shield,
+  'piggy-bank': PiggyBank,
+  banknote: Money,
+  wallet: Wallet,
+  landmark: Bank,
+};
 
-// Render a single lucide icon by string name.
-// We look it up from the imported Icons namespace.
-function LucideIcon({ name, size = 18 }: { name: string; size?: number }) {
-  const pascalName = toPascalCase(name);
-  const IconComponent = (Icons as unknown as Record<string, React.ComponentType<{ size?: number }>>)[pascalName];
-  if (!IconComponent) return <span style={{ width: size, height: size }} />;
-  return <IconComponent size={size} />;
+/** Renders a category/sector icon by its stored string name. */
+export function CategoryIcon({ name, size = 18, className }: { name?: string | null; size?: number; className?: string }) {
+  const Component = (name && ICONS[name]) || Tag;
+  return <Component size={size} weight="bold" className={className} aria-hidden="true" />;
 }
 
 interface IconPickerProps {
@@ -42,28 +98,29 @@ interface IconPickerProps {
 
 export function IconPicker({ value, onChange }: IconPickerProps) {
   return (
-    <div className="grid grid-cols-6 gap-2 p-3 bg-gray-50 rounded-control border border-gray-200 max-h-48 overflow-y-auto">
-      {SUPPORTED_ICONS.map((icon) => (
-        <button
-          key={icon}
-          type="button"
-          onClick={() => onChange(icon)}
-          title={icon}
-          className={cn(
-            'flex items-center justify-center w-9 h-9 rounded-control transition-all',
-            'hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400',
-            value === icon
-              ? 'bg-gray-900 text-white hover:bg-gray-800'
-              : 'bg-surface text-gray-600 border border-gray-200',
-          )}
-        >
-          <LucideIcon name={icon} size={16} />
-        </button>
-      ))}
+    <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-8 md:grid-cols-10" role="radiogroup" aria-label="Icon">
+      {SUPPORTED_ICONS.map((icon) => {
+        const selected = value === icon;
+        return (
+          <button
+            key={icon}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            aria-label={icon.replace(/-/g, ' ')}
+            onClick={() => onChange(icon)}
+            title={icon.replace(/-/g, ' ')}
+            className={cn(
+              'grid aspect-square place-items-center rounded-[6px] border transition-all duration-150 active:scale-95',
+              selected
+                ? 'border-strong bg-strong text-strong-foreground'
+                : 'border-line bg-surface text-muted hover:border-line-strong hover:text-foreground',
+            )}
+          >
+            <CategoryIcon name={icon} size={16} />
+          </button>
+        );
+      })}
     </div>
   );
 }
-
-// Also export the LucideIcon renderer — other components need it
-// to display a category's icon by its stored string name.
-export { LucideIcon };

@@ -1,23 +1,18 @@
 import Link from "next/link";
-import { acebuilderButtonClass } from "@/components/ui/Button";
-import { cn } from "@/lib/utils/cn";
+import { LogoMark } from "@/components/brand/Logo";
+import { buttonClass } from "@/components/ui/Button";
 
 export default function NotFound() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-canvas px-6">
-      <div className="rounded-card bg-surface p-8 text-center">
-        <p className="text-sm font-semibold text-muted">404</p>
-        <h1 className="mt-2 text-3xl font-black text-ink">
-          Page not found
+    <main className="dot-grid flex min-h-screen items-center justify-center bg-background px-6">
+      <div className="card w-full max-w-md p-8 text-center md:p-10">
+        <LogoMark className="mx-auto" />
+        <p className="num mt-8 font-mono text-[13px] text-muted">404</p>
+        <h1 className="mt-2 text-[28px] font-[380] tracking-[-0.025em]">
+          Page not found.
+          <span className="text-ghost"> It may have moved.</span>
         </h1>
-        <p className="mt-2 text-sm text-muted">
-          The page you requested does not exist.
-        </p>
-        <Link
-          href="/dashboard"
-          data-slot="button"
-          className={cn(acebuilderButtonClass, "mt-6")}
-        >
+        <Link href="/dashboard" className={buttonClass({ className: "mt-8" })}>
           Go to dashboard
         </Link>
       </div>
