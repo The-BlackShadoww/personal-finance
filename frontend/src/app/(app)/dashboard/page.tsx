@@ -1,900 +1,352 @@
 "use client";
 
-import { BarChart3, ChevronLeft, ChevronRight, PieChart, Plus, TrendingUp } from "lucide-react";
+import { Plus } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ModernChart, chartBase } from "@/components/charts/ModernChart";
+import { AreaChart } from "@/components/charts/AreaChart";
+import { BarChart } from "@/components/charts/BarChart";
+import { ChartEmpty, Legend } from "@/components/charts/core";
+import { DonutChart } from "@/components/charts/DonutChart";
+import { Gauge } from "@/components/charts/Gauge";
 import { AccountBalanceWidget } from "@/components/dashboard/AccountBalanceWidget";
+import { PeriodSummaryCards } from "@/components/dashboard/PeriodSummaryCards";
+import { Panel, PeriodStepper, usd, usd0 } from "@/components/dashboard/primitives";
 import { QuarterlyView } from "@/components/dashboard/QuarterlyView";
 import { YearlyView } from "@/components/dashboard/YearlyView";
 import { PageHeader } from "@/components/layouts/PageHeader";
-import { SummaryCard } from "@/components/shared/SummaryCard";
+import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
+import { buttonClass } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import type { YearlySummary } from "@/lib/api/calculations";
 import { useCategoryBreakdown } from "@/lib/hooks/useCategoryBreakdown";
 import { useMonthlySummary } from "@/lib/hooks/useMonthlySummary";
+import { useProfile } from "@/lib/hooks/useProfile";
 import { useYearlySummary } from "@/lib/hooks/useYearlySummary";
+import { cn } from "@/lib/utils/cn";
+
+type Period = "monthly" | "quarterly" | "yearly";
+
+const FALLBACK_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#4a3aa7"];
 
 export default function DashboardPage() {
-  const now = new Date();
-  const [selectedDate, setSelectedDate] = useState(
-    () => new Date(now.getFullYear(), now.getMonth(), 1),
-  );
-  const [activePeriod, setActivePeriod] = useState<"monthly" | "quarterly" | "yearly">("monthly");
+  const [activePeriod, setActivePeriod] = useState<Period>("monthly");
   const reduceMotion = useReducedMotion();
-  const year = selectedDate.getFullYear();
-  const month = selectedDate.getMonth() + 1;
-  const monthly = useMonthlySummary(year, month);
-  const yearly = useYearlySummary(year);
-  const categories = useCategoryBreakdown(year, month);
-  const points = useMemo(
-    () =>
-      Array.from({ length: 6 }, (_, index) => {
-        const date = new Date(year, month - 6 + index, 1);
-        const row = yearly.data?.monthlyBreakdown.find(
-          (item) => item.month === date.getMonth() + 1,
-        ) ?? { totalIncome: 0, totalExpense: 0 };
-        const income = row.totalIncome;
-        const expense = row.totalExpense;
-        return {
-          label: date.toLocaleString("en-US", { month: "short" }),
-          income,
-          expense,
-          rate: income
-            ? Number((((income - expense) / income) * 100).toFixed(1))
-            : 0,
-        };
-      }),
-    [month, year, yearly.data],
-  );
-  const categoryItems = useMemo(
-    () =>
-      (categories.data ?? [])
-        .filter((item) => item.type === "expense" && item.total > 0)
-        .slice(0, 6),
-    [categories.data],
-  );
-  const loading = monthly.isLoading || yearly.isLoading;
-  const money = (value: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(value);
-  const base = chartBase();
-  const flowOptions = {
-    ...base,
-    colors: ["#2142e7", "#efb366"],
-    plotOptions: { bar: { borderRadius: 7, columnWidth: "48%" } },
-    xaxis: {
-      categories: points.map((point) => point.label),
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-      labels: { style: { colors: "var(--ds-chart-tick)" } },
-    },
-    yaxis: {
-      labels: {
-        formatter: (value: number) => `$${Math.round(value / 1000)}k`,
-        style: { colors: "var(--ds-chart-tick)" },
-      },
-    },
-    tooltip: { ...base.tooltip, y: { formatter: money } },
-  };
-  const rateOptions = {
-    ...base,
-    colors: ["#2142e7"],
-    stroke: { curve: "smooth" as const, width: 3 },
-    fill: {
-      type: "gradient" as const,
-      gradient: { shadeIntensity: 0.2, opacityFrom: 0.38, opacityTo: 0.02 },
-    },
-    xaxis: {
-      categories: points.map((point) => point.label),
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-      labels: { style: { colors: "var(--ds-chart-tick)" } },
-    },
-    yaxis: {
-      min: 0,
-      max: 100,
-      labels: {
-        formatter: (value: number) => `${value}%`,
-        style: { colors: "var(--ds-chart-tick)" },
-      },
-    },
-    tooltip: {
-      ...base.tooltip,
-      y: { formatter: (value: number) => `${value.toFixed(1)}%` },
-    },
-  };
-  const donutOptions = {
-    ...base,
-    labels: categoryItems.map((item) => item.name),
-    colors: categoryItems.map(
-      (item, index) =>
-        item.color ??
-        ["#2142e7", "#6c8cff", "#efb366", "#e9d15b", "#1d9b5f", "#d14343"][
-          index
-        ],
-    ),
-    stroke: { colors: ["var(--ds-surface)"], width: 4 },
-    plotOptions: {
-      pie: {
-        donut: {
-          size: "72%",
-          labels: {
-            show: true,
-            total: {
-              show: true,
-              label: "Spent",
-              formatter: () =>
-                money(
-                  categoryItems.reduce((total, item) => total + item.total, 0),
-                ),
-            },
-          },
-        },
-      },
-    },
-    tooltip: { ...base.tooltip, y: { formatter: money } },
-  };
+  const { data: profile } = useProfile();
+  const firstName = profile?.name?.trim().split(/\s+/)[0];
+
   return (
-    <div className="space-y-7">
-      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-        <PageHeader
-          title="Your money, in focus."
-          description="A calm view of what came in, what went out, and what you can keep moving toward."
-        />
-        <div className="inline-flex items-center rounded-full border border-line bg-surface p-1">
-          <button
-            onClick={() => setSelectedDate(new Date(year, month - 2, 1))}
-            aria-label="Previous month"
-            className="grid h-8 w-8 place-items-center rounded-full text-muted hover:bg-canvas hover:text-ink"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span className="min-w-32 px-3 text-center text-sm font-medium">
-            {selectedDate.toLocaleString("en-US", {
-              month: "long",
-              year: "numeric",
-            })}
-          </span>
-          <button
-            onClick={() => setSelectedDate(new Date(year, month, 1))}
-            aria-label="Next month"
-            className="grid h-8 w-8 place-items-center rounded-full text-muted hover:bg-canvas hover:text-ink"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
-      <div className="inline-flex w-fit rounded-control border border-line bg-subtle p-1" role="tablist" aria-label="Dashboard period">
-        {(["monthly", "quarterly", "yearly"] as const).map((period) => <button key={period} role="tab" aria-selected={activePeriod === period} onClick={() => setActivePeriod(period)} className={`relative min-h-9 rounded-[12px] px-4 text-sm font-medium capitalize ${activePeriod === period ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}>{activePeriod === period && <motion.span layoutId="dashboard-period" className="absolute inset-0 rounded-[12px] bg-surface shadow-sm" transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 30 }} />}<span className="relative">{period}</span></button>)}
-      </div>
+    <div className="space-y-10">
+      <PageHeader
+        eyebrow={new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        title={`${greeting()}${firstName ? `, ${firstName}` : ""}.`}
+        aside="Here is where your money stands."
+        actions={
+          <SegmentedControl
+            label="Dashboard period"
+            value={activePeriod}
+            onChange={setActivePeriod}
+            options={[
+              { value: "monthly", label: "Monthly" },
+              { value: "quarterly", label: "Quarterly" },
+              { value: "yearly", label: "Yearly" },
+            ]}
+          />
+        }
+      />
+
       <AnimatePresence mode="wait" initial={false}>
-      {activePeriod === "monthly" ? <motion.div key="monthly" initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? undefined : { opacity: 0, y: -6 }} transition={{ duration: .18 }} className="space-y-7"><section className="grid gap-4 xl:grid-cols-[1.1fr_1.9fr]">
-        <AccountBalanceWidget />
-        <div className="grid gap-3 sm:grid-cols-3">
-          <SummaryCard
-            title="Income"
-            value={monthly.data?.totalIncome ?? 0}
-            subtitle="This month"
-            tone="income"
-            isLoading={loading}
-          />
-          <SummaryCard
-            title="Spent"
-            value={monthly.data?.totalExpense ?? 0}
-            subtitle="This month"
-            tone="expense"
-            isLoading={loading}
-          />
-          <SummaryCard
-            title="Kept"
-            value={monthly.data?.savings ?? 0}
-            subtitle={`${Number(monthly.data?.savingsRate ?? 0).toFixed(1)}% savings rate`}
-            tone="savings"
-            isLoading={loading}
-          />
-        </div>
-      </section>
-      <section className="grid gap-4 xl:grid-cols-[1.55fr_.85fr]">
-        <ChartPanel
-          title="Cash flow"
-          subtitle="Income and spending over the last six months"
-          loading={yearly.isLoading}
-          icon={BarChart3}
+        <motion.div
+          key={activePeriod}
+          initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         >
-          <ModernChart
-            type="bar"
-            height={292}
-            options={flowOptions}
-            series={[
-              { name: "Income", data: points.map((point) => point.income) },
-              { name: "Spent", data: points.map((point) => point.expense) },
-            ]}
-          />
-        </ChartPanel>
-        <ChartPanel
-          title="Where it went"
-          subtitle="Your top expense categories"
-          loading={categories.isLoading}
-          icon={PieChart}
-        >
-          {categoryItems.length ? (
-            <ModernChart
-              type="donut"
-              height={292}
-              options={donutOptions}
-              series={categoryItems.map((item) => item.total)}
-            />
-          ) : (
-            <EmptyChart />
-          )}
-        </ChartPanel>
-      </section>
-      <section>
-        <ChartPanel
-          title="Savings momentum"
-          subtitle="Your monthly savings rate"
-          loading={yearly.isLoading}
-          icon={TrendingUp}
-        >
-          <ModernChart
-            type="area"
-            height={252}
-            options={rateOptions}
-            series={[
-              { name: "Savings rate", data: points.map((point) => point.rate) },
-            ]}
-          />
-        </ChartPanel>
-      </section></motion.div> : activePeriod === "quarterly" ? <motion.div key="quarterly" initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? undefined : { opacity: 0, y: -6 }} transition={{ duration: .18 }}><QuarterlyView /></motion.div> : <motion.div key="yearly" initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? undefined : { opacity: 0, y: -6 }} transition={{ duration: .18 }}><YearlyView /></motion.div>}
+          {activePeriod === "monthly" ? <MonthlyView /> : activePeriod === "quarterly" ? <QuarterlyView /> : <YearlyView />}
+        </motion.div>
       </AnimatePresence>
     </div>
   );
 }
 
-function ChartPanel({
-  title,
-  subtitle,
-  loading,
-  icon: Icon,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  loading: boolean;
-  icon?: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-}) {
-  return (
-    <article className="app-panel p-5 md:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold tracking-[-.03em]">{title}</h2>
-          <p className="mt-1 text-sm text-muted">{subtitle}</p>
-        </div>
-        {Icon ? (
-          <span className="grid h-8 w-8 place-items-center rounded-control bg-accent text-primary">
-            <Icon className="h-4 w-4" />
-          </span>
-        ) : null}
-      </div>
-      <div className="mt-5">
-        {loading ? (
-          <div className="h-[292px] animate-pulse rounded-card bg-canvas" />
-        ) : (
-          children
-        )}
-      </div>
-    </article>
-  );
-}
-function EmptyChart() {
-  return (
-    <div className="flex h-[292px] flex-col items-center justify-center rounded-card border border-dashed border-line bg-subtle px-6 text-center">
-      <div className="grid h-10 w-10 place-items-center rounded-control bg-accent text-primary">
-        <PieChart className="h-5 w-5" />
-      </div>
-      <p className="mt-3 text-sm font-semibold text-foreground">No spending recorded</p>
-      <p className="mt-1 max-w-[200px] text-xs leading-relaxed text-muted">
-        Add an expense to see your category breakdown.
-      </p>
-      <Link
-        href="/transactions"
-        className="mt-4 inline-flex items-center gap-1.5 rounded-control bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-hover"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        Add transaction
-      </Link>
-    </div>
-  );
-}
-
-/*
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
-import {
-  Area,
-  Bar,
-  BarChart,
-  Cell,
-  ComposedChart,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import type { TooltipProps } from "recharts";
-
-import { QuarterlyView } from "@/components/dashboard/QuarterlyView";
-import { YearlyView } from "@/components/dashboard/YearlyView";
-import { PageHeader } from "@/components/layouts/PageHeader";
-import { SummaryCard } from "@/components/shared/SummaryCard";
-import type { YearlySummary } from "@/lib/api/calculations";
-import { useCategoryBreakdown } from "@/lib/hooks/useCategoryBreakdown";
-import { useMonthlySummary } from "@/lib/hooks/useMonthlySummary";
-import { useYearlySummary } from "@/lib/hooks/useYearlySummary";
-import { acebuilderActiveClasses } from "@/components/ui/Button";
-import { cn } from "@/lib/utils/cn";
-
-const MONTH_LABELS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
-const DEFAULT_CATEGORY_COLORS = [
-  "#2667ff", "#38c8ff", "#ffc091", "#2ead4b", "#a78bfa", "#f472b6",
-];
-
-type MonthPoint = {
-  year: number;
-  month: number;
-  label: string;
-  income: number;
-  expense: number;
-  savingsRate: number;
-};
-
-type DashboardTab = "monthly" | "quarterly" | "yearly";
-
-const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
-  { id: "monthly", label: "Monthly" },
-  { id: "quarterly", label: "Quarterly" },
-  { id: "yearly", label: "Yearly" },
-];
-
-/* ─── Custom tooltip ─── * /
-function ChartTooltip({
-  active,
-  payload,
-  label,
-}: TooltipProps<number, string>) {
-  if (!active || !payload || payload.length === 0) return null;
-
-  return (
-    <div className="recharts-custom-tooltip">
-      <p className="tooltip-label">{label}</p>
-      {payload.map((entry) => (
-        <div key={entry.dataKey} className="tooltip-row">
-          <span
-            className="tooltip-dot"
-            style={{ backgroundColor: entry.color }}
-          />
-          <span className="tooltip-name">{entry.name}</span>
-          <span className="tooltip-value">
-            {formatAmount(Number(entry.value ?? 0))}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SavingsTooltip({
-  active,
-  payload,
-  label,
-}: TooltipProps<number, string>) {
-  if (!active || !payload || payload.length === 0) return null;
-
-  return (
-    <div className="recharts-custom-tooltip">
-      <p className="tooltip-label">{label}</p>
-      {payload
-        .filter((entry) => entry.dataKey === "savingsRate")
-        .map((entry) => (
-          <div key={entry.dataKey} className="tooltip-row">
-            <span
-              className="tooltip-dot"
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="tooltip-name">{entry.name}</span>
-            <span className="tooltip-value">
-              {formatPercent(Number(entry.value ?? 0))}
-            </span>
-          </div>
-        ))}
-    </div>
-  );
-}
-
-function CategoryTooltip({
-  active,
-  payload,
-}: TooltipProps<number, string>) {
-  if (!active || !payload || payload.length === 0) return null;
-  const entry = payload[0];
-
-  return (
-    <div className="recharts-custom-tooltip">
-      <div className="tooltip-row">
-        <span
-          className="tooltip-dot"
-          style={{ backgroundColor: entry.payload?.color }}
-        />
-        <span className="tooltip-name">{entry.name}</span>
-        <span className="tooltip-value">
-          {formatAmount(Number(entry.value ?? 0))}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Main page ─── * /
-export default function DashboardPage() {
-  const today = new Date();
-  const [activeTab, setActiveTab] = useState<DashboardTab>("monthly");
-  const [selectedDate, setSelectedDate] = useState(
-    () => new Date(today.getFullYear(), today.getMonth(), 1),
-  );
-
+function MonthlyView() {
+  const now = new Date();
+  const [selectedDate, setSelectedDate] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const year = selectedDate.getFullYear();
   const month = selectedDate.getMonth() + 1;
-  const needsPreviousYear = month < 6;
 
-  const monthlySummary = useMonthlySummary(year, month);
-  const yearlySummary = useYearlySummary(year);
-  const previousYearSummary = useYearlySummary(year - 1, {
-    enabled: needsPreviousYear,
-  });
-  const categoryBreakdown = useCategoryBreakdown(year, month);
+  const monthly = useMonthlySummary(year, month);
+  const yearly = useYearlySummary(year);
+  const previousYearly = useYearlySummary(year - 1, { enabled: month < 6 });
+  const categories = useCategoryBreakdown(year, month);
 
-  const sixMonthData = useMemo(
-    () =>
-      buildSixMonthData(
-        selectedDate,
-        yearlySummary.data,
-        previousYearSummary.data,
-      ),
-    [previousYearSummary.data, selectedDate, yearlySummary.data],
+  const points = useMemo(
+    () => buildTrailingMonths(selectedDate, 6, yearly.data, previousYearly.data),
+    [previousYearly.data, selectedDate, yearly.data],
   );
+  const previousPoint = points[points.length - 2];
 
-  const expenseCategories = useMemo(
+  const categoryItems = useMemo(
     () =>
-      (categoryBreakdown.data ?? [])
+      (categories.data ?? [])
         .filter((item) => item.type === "expense" && item.total > 0)
+        .sort((a, b) => b.total - a.total)
         .map((item, index) => ({
-          ...item,
-          color:
-            item.color ??
-            DEFAULT_CATEGORY_COLORS[index % DEFAULT_CATEGORY_COLORS.length],
+          id: item.name,
+          label: item.name,
+          value: item.total,
+          count: item.count,
+          color: item.color ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length],
         })),
-    [categoryBreakdown.data],
+    [categories.data],
   );
+  const topCategories = categoryItems.slice(0, 6);
+  const categoryTotal = categoryItems.reduce((sum, item) => sum + item.value, 0);
 
-  const totalExpenseForPie = useMemo(
-    () => expenseCategories.reduce((sum, c) => sum + c.total, 0),
-    [expenseCategories],
-  );
-
-  const isYearlyLoading =
-    yearlySummary.isLoading ||
-    yearlySummary.isFetching ||
-    (needsPreviousYear &&
-      (previousYearSummary.isLoading || previousYearSummary.isFetching));
-  const isMonthlyLoading =
-    monthlySummary.isLoading || monthlySummary.isFetching;
-  const isCategoryLoading =
-    categoryBreakdown.isLoading || categoryBreakdown.isFetching;
-  const savingsRate = toNumber(monthlySummary.data?.savingsRate);
-
-  function goToPreviousMonth() {
-    setSelectedDate((current) => {
-      return new Date(current.getFullYear(), current.getMonth() - 1, 1);
-    });
-  }
-
-  function goToNextMonth() {
-    setSelectedDate((current) => {
-      return new Date(current.getFullYear(), current.getMonth() + 1, 1);
-    });
-  }
+  const loading = monthly.isLoading || yearly.isLoading;
+  const trendLoading = yearly.isLoading || (month < 6 && previousYearly.isLoading);
+  const savingsRate = Number(monthly.data?.savingsRate ?? 0);
+  const monthLabel = selectedDate.toLocaleString("en-US", { month: "long", year: "numeric" });
+  const hasFlow = points.some((point) => point.values.income || point.values.expense);
 
   return (
-    <div className="dashboard-page space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <PageHeader
-          title="Dashboard"
-          description="Track income, expenses, and savings momentum."
+    <div className="space-y-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[14px] text-muted">
+          Showing <span className="text-foreground">{monthLabel}</span>
+          {monthly.data ? (
+            <span className="num"> · {monthly.data.transactionCount} transactions</span>
+          ) : null}
+        </p>
+        <PeriodStepper
+          label={monthLabel}
+          onPrevious={() => setSelectedDate(new Date(year, month - 2, 1))}
+          onNext={() => setSelectedDate(new Date(year, month, 1))}
+          previousLabel="Previous month"
+          nextLabel="Next month"
         />
-
-        {activeTab === "monthly" && (
-          <div className="inline-flex h-10 items-center rounded-full border border-line bg-surface">
-            <button
-              type="button"
-              aria-label="Previous month"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted hover:text-ink"
-              onClick={goToPreviousMonth}
-            >
-              <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-            </button>
-            <div className="min-w-36 px-4 text-center text-sm font-medium text-ink">
-              {formatMonthYear(selectedDate)}
-            </div>
-            <button
-              type="button"
-              aria-label="Next month"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted hover:text-ink"
-              onClick={goToNextMonth}
-            >
-              <ChevronRight aria-hidden="true" className="h-4 w-4" />
-            </button>
-          </div>
-        )}
       </div>
 
-      <div
-        className="dashboard-tabs mb-4 inline-flex gap-1 overflow-x-auto rounded-full p-1 border border-line backdrop-blur-2xl"
-        role="tablist"
-        aria-label="Dashboard period"
-      >
-        {DASHBOARD_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            data-slot="button"
-            onClick={() => setActiveTab(tab.id)}
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            className={cn(
-              "dashboard-tab inline-flex cursor-pointer font-display items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 active:scale-[0.98] outline-none",
-              activeTab === tab.id
-                ? `dashboard-tab-active ${acebuilderActiveClasses}`
-                : "dashboard-tab-inactive text-muted hover:text-ink hover:bg-canvas/60",
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === "monthly" && (
-        <>
-          {/* Summary cards * /}
-          <section className="grid gap-3 md:grid-cols-3">
-            <SummaryCard
-              title="Total income"
-              value={monthlySummary.data?.totalIncome ?? 0}
-              subtitle="This month"
-              tone="income"
-              isLoading={isMonthlyLoading}
-            />
-            <SummaryCard
-              title="Total expenses"
-              value={monthlySummary.data?.totalExpense ?? 0}
-              subtitle="This month"
-              tone="expense"
-              isLoading={isMonthlyLoading}
-            />
-            <SummaryCard
-              title="Net savings"
-              value={monthlySummary.data?.savings ?? 0}
-              subtitle={`${formatPercent(savingsRate)} savings rate`}
-              tone="savings"
-              isLoading={isMonthlyLoading}
-            />
-          </section>
-
-          {/* Charts — bento layout: bar+pie row, then savings full-width * /}
-          <section className="grid gap-4 xl:grid-cols-[2fr_1fr]">
-            {/* Bar chart — income vs expense * /}
-            <ChartPanel
-              title="Income vs expense"
-              legend={[
-                { color: "var(--ds-primary)", label: "Income" },
-                { color: "var(--ds-danger)", label: "Expense" },
-              ]}
-              isLoading={isYearlyLoading}
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={sixMonthData} barGap={3} barSize={20}>
-                  <XAxis
-                    dataKey="label"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 11, fill: "var(--ds-chart-tick)" }}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 11, fill: "var(--ds-chart-tick)" }}
-                    tickFormatter={(value) =>
-                      formatCompactAmount(Number(value))
-                    }
-                  />
-                  <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--ds-canvas)", opacity: 0.5 }} />
-                  <Bar
-                    dataKey="income"
-                    name="Income"
-                    fill="var(--ds-primary)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="expense"
-                    name="Expense"
-                    fill="var(--ds-danger)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartPanel>
-
-            {/* Pie chart — expense categories * /}
-            <ChartPanel
-              title="Expense breakdown"
-              isLoading={isCategoryLoading}
-            >
-              {expenseCategories.length === 0 ? (
-                <EmptyChartState message="No expenses this month" />
+      <Stagger className="grid gap-3 lg:grid-cols-12">
+        <StaggerItem className="lg:col-span-7">
+          <AccountBalanceWidget className="h-full" />
+        </StaggerItem>
+        <StaggerItem className="lg:col-span-5">
+          <section className="card card-hover flex h-full flex-col p-7 md:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-[15px]">Savings rate</h2>
+                <p className="text-[13px] text-muted">Share of income you kept</p>
+              </div>
+              {loading ? null : !(monthly.data?.totalIncome || monthly.data?.totalExpense) ? (
+                <span className="tag bg-surface-2 text-muted">No activity</span>
               ) : (
-                <div className="flex h-full flex-col">
-                  <div className="flex flex-1 items-center justify-center">
-                    <ResponsiveContainer width="100%" height={200}>
-                      <PieChart>
-                        <Pie
-                          data={expenseCategories}
-                          dataKey="total"
-                          nameKey="name"
-                          innerRadius="58%"
-                          outerRadius="82%"
-                          paddingAngle={2}
-                          strokeWidth={0}
-                        >
-                          {expenseCategories.map((category) => (
-                            <Cell key={category.name} fill={category.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CategoryTooltip />} />
-                        {/* Center label * /}
-                        <text
-                          x="50%"
-                          y="46%"
-                          textAnchor="middle"
-                          dominantBaseline="central"
-                          className="fill-muted text-[10px]"
-                        >
-                          Total
-                        </text>
-                        <text
-                          x="50%"
-                          y="56%"
-                          textAnchor="middle"
-                          dominantBaseline="central"
-                          className="fill-ink text-xs font-semibold"
-                        >
-                          {formatAmount(totalExpenseForPie)}
-                        </text>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+                <span
+                  className={cn(
+                    "tag",
+                    savingsRate >= 20
+                      ? "bg-green-bg text-green-fg"
+                      : savingsRate > 0
+                        ? "bg-yellow-bg text-yellow-fg"
+                        : "bg-red-bg text-red-fg",
+                  )}
+                >
+                  {savingsRate >= 20 ? "On track" : savingsRate > 0 ? "Tight" : "Overspent"}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-1 items-end justify-center pt-6">
+              {loading ? <div className="skeleton h-[148px] w-[240px]" /> : <Gauge value={savingsRate} label={monthLabel} />}
+            </div>
+            <p className="mt-5 border-t border-line pt-4 text-[13px] text-muted">
+              Kept <span className="num text-foreground">{usd0(monthly.data?.savings ?? 0)}</span> of{" "}
+              <span className="num text-foreground">{usd0(monthly.data?.totalIncome ?? 0)}</span> earned this month.
+            </p>
+          </section>
+        </StaggerItem>
+      </Stagger>
 
-                  <div className="mt-auto space-y-2 border-t border-line pt-3">
-                    {expenseCategories.slice(0, 5).map((category) => (
-                      <div
-                        key={category.name}
-                        className="flex items-center justify-between gap-3 text-xs"
+      <PeriodSummaryCards
+        totalIncome={monthly.data?.totalIncome ?? 0}
+        totalExpense={monthly.data?.totalExpense ?? 0}
+        savings={monthly.data?.savings ?? 0}
+        savingsRate={String(monthly.data?.savingsRate ?? "0")}
+        isLoading={loading}
+        against="last month"
+        previous={
+          previousPoint && !trendLoading && (previousPoint.values.income || previousPoint.values.expense)
+            ? {
+                totalIncome: previousPoint.values.income,
+                totalExpense: previousPoint.values.expense,
+                savings: previousPoint.values.income - previousPoint.values.expense,
+                savingsRate: previousPoint.values.rate,
+              }
+            : null
+        }
+        trends={
+          trendLoading
+            ? undefined
+            : {
+                income: points.map((p) => p.values.income),
+                expense: points.map((p) => p.values.expense),
+                savings: points.map((p) => p.values.income - p.values.expense),
+              }
+        }
+      />
+
+      <Reveal>
+        <Panel
+          title="Cash flow"
+          subtitle="Income and spending over the last six months"
+          action={
+            <Legend
+              series={[
+                { key: "income", label: "Income", color: "var(--ds-series-income)" },
+                { key: "expense", label: "Expenses", color: "var(--ds-series-expense)" },
+              ]}
+            />
+          }
+        >
+          {trendLoading ? (
+            <div className="skeleton h-[300px]" />
+          ) : hasFlow ? (
+            <AreaChart
+              data={points}
+              height={300}
+              series={[
+                { key: "income", label: "Income", color: "var(--ds-series-income)" },
+                { key: "expense", label: "Expenses", color: "var(--ds-series-expense)" },
+              ]}
+              formatValue={usd}
+              ariaLabel={`Income and expenses for the six months ending ${monthLabel}`}
+            />
+          ) : (
+            <ChartEmpty height={300} message="No income or spending recorded in the last six months." />
+          )}
+        </Panel>
+      </Reveal>
+
+      <div className="grid gap-3 lg:grid-cols-12">
+        <Reveal className="lg:col-span-7">
+          <Panel title="Where it went" subtitle={`Expense categories in ${monthLabel}`} className="h-full">
+            {categories.isLoading ? (
+              <div className="skeleton h-[260px]" />
+            ) : topCategories.length ? (
+              <div className="grid items-center gap-8 md:grid-cols-[220px_1fr]">
+                <DonutChart
+                  slices={topCategories}
+                  centerLabel="Spent"
+                  formatValue={usd0}
+                  activeId={activeCategory}
+                  onActiveChange={setActiveCategory}
+                  ariaLabel={`Spending by category for ${monthLabel}`}
+                />
+                <ul className="space-y-1">
+                  {topCategories.map((item) => {
+                    const share = categoryTotal ? (item.value / categoryTotal) * 100 : 0;
+                    return (
+                      <li
+                        key={item.id}
+                        onPointerEnter={() => setActiveCategory(item.id)}
+                        onPointerLeave={() => setActiveCategory(null)}
+                        className={cn(
+                          "rounded-[8px] px-3 py-2 transition-[background-color,opacity] duration-200",
+                          activeCategory === item.id && "bg-surface-2",
+                          activeCategory && activeCategory !== item.id && "opacity-45",
+                        )}
                       >
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span
-                            aria-hidden="true"
-                            className="h-2 w-2 shrink-0 rounded-full"
-                            style={{ backgroundColor: category.color }}
-                          />
-                          <span className="truncate text-muted">
-                            {category.name}
+                        <div className="flex items-center justify-between gap-3 text-[13px]">
+                          <span className="flex min-w-0 items-center gap-2.5">
+                            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                            <span className="truncate">{item.label}</span>
+                          </span>
+                          <span className="num shrink-0 text-muted">
+                            <span className="text-foreground">{usd0(item.value)}</span> · {share.toFixed(0)}%
                           </span>
                         </div>
-                        <span className="font-medium text-ink">
-                          {formatAmount(category.total)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </ChartPanel>
-          </section>
-
-          {/* Savings rate trend — full width * /}
-          <section>
-            <ChartPanel
-              title="Savings rate trend"
-              legend={[{ color: "var(--ds-primary)", label: "Savings rate" }]}
-              isLoading={isYearlyLoading}
-              height="h-64"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={sixMonthData}>
-                  <defs>
-                    <linearGradient id="savingsGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--ds-primary)" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="var(--ds-primary)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="label"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 11, fill: "var(--ds-chart-tick)" }}
-                  />
-                  <YAxis
-                    domain={[0, 100]}
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fontSize: 11, fill: "var(--ds-chart-tick)" }}
-                    tickFormatter={(value) => `${value}%`}
-                  />
-                  <Tooltip content={<SavingsTooltip />} cursor={{ stroke: "var(--ds-line)" }} />
-                  <Area
-                    type="monotone"
-                    dataKey="savingsRate"
-                    fill="url(#savingsGradient)"
-                    stroke="none"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="savingsRate"
-                    name="Savings rate"
-                    stroke="var(--ds-primary)"
-                    strokeWidth={2.5}
-                    dot={{ r: 4, fill: "var(--ds-surface)", stroke: "var(--ds-primary)", strokeWidth: 2 }}
-                    activeDot={{ r: 6, fill: "var(--ds-primary)", stroke: "var(--ds-surface)", strokeWidth: 2 }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </ChartPanel>
-          </section>
-        </>
-      )}
-
-      {activeTab === "quarterly" && <QuarterlyView />}
-
-      {activeTab === "yearly" && <YearlyView />}
-    </div>
-  );
-}
-
-/* ─── Chart panel ─── * /
-function ChartPanel({
-  title,
-  legend,
-  isLoading,
-  children,
-  height = "h-72",
-}: {
-  title: string;
-  legend?: Array<{ color: string; label: string }>;
-  isLoading: boolean;
-  children: React.ReactNode;
-  height?: string;
-}) {
-  return (
-    <article className="surface-card rounded-card bg-surface p-5">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-ink">{title}</h2>
-        {legend && (
-          <div className="flex items-center gap-4">
-            {legend.map((item) => (
-              <div key={item.label} className="flex items-center gap-1.5 text-xs text-muted">
-                <span
-                  className="inline-block h-2 w-2 rounded-full"
-                  style={{ backgroundColor: item.color }}
-                />
-                {item.label}
+                        <div className="mt-2 h-[3px] overflow-hidden rounded-full bg-surface-2">
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ backgroundColor: item.color, originX: 0 }}
+                            initial={{ scaleX: 0 }}
+                            animate={{ scaleX: share / 100 }}
+                            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className={cn("mt-4", height)}>
-        {isLoading ? <ChartSkeleton /> : children}
-      </div>
-    </article>
-  );
-}
+            ) : (
+              <ChartEmpty height={260} message="No spending recorded this month.">
+                <Link href="/transactions" className={buttonClass({ size: "sm" })}>
+                  <Plus size={13} weight="bold" /> Add a transaction
+                </Link>
+              </ChartEmpty>
+            )}
+          </Panel>
+        </Reveal>
 
-function ChartSkeleton() {
-  return (
-    <div className="h-full w-full animate-pulse rounded-card bg-canvas" />
-  );
-}
-
-function EmptyChartState({ message }: { message: string }) {
-  return (
-    <div className="flex h-full items-center justify-center rounded-card border border-dashed border-line bg-canvas px-6 text-center text-sm text-muted">
-      {message}
+        <Reveal className="lg:col-span-5" delay={0.08}>
+          <Panel title="Savings momentum" subtitle="Monthly savings rate, last six months" className="h-full">
+            {trendLoading ? (
+              <div className="skeleton h-[260px]" />
+            ) : (
+              <BarChart
+                data={points}
+                series={[{ key: "rate", label: "Savings rate", color: "var(--ds-series-net)" }]}
+                negativeColor="var(--ds-series-expense)"
+                height={260}
+                formatValue={(value) => `${value.toFixed(1)}%`}
+                formatTick={(value) => `${value}%`}
+                maxBarWidth={26}
+                ariaLabel="Savings rate for each of the last six months"
+              />
+            )}
+          </Panel>
+        </Reveal>
+      </div>
     </div>
   );
 }
 
-/* ─── Helpers ─── * /
-function buildSixMonthData(
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function buildTrailingMonths(
   selectedDate: Date,
+  count: number,
   currentYear?: YearlySummary,
   previousYear?: YearlySummary,
-): MonthPoint[] {
-  return Array.from({ length: 6 }, (_value, index) => {
-    const offset = index - 5;
-    const date = new Date(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth() + offset,
-      1,
-    );
+) {
+  return Array.from({ length: count }, (_value, index) => {
+    const date = new Date(selectedDate.getFullYear(), selectedDate.getMonth() - (count - 1 - index), 1);
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
-    const summary = year === currentYear?.year ? currentYear : previousYear;
-    const monthData = summary?.monthlyBreakdown.find(
-      (item) => item.month === month,
-    );
-    const income = monthData?.totalIncome ?? 0;
-    const expense = monthData?.totalExpense ?? 0;
-
+    const summary =
+      currentYear && year === Number(currentYear.year)
+        ? currentYear
+        : previousYear && year === Number(previousYear.year)
+          ? previousYear
+          : undefined;
+    const row = summary?.monthlyBreakdown.find((item) => item.month === month);
+    const income = row?.totalIncome ?? 0;
+    const expense = row?.totalExpense ?? 0;
     return {
-      year,
-      month,
-      label: MONTH_LABELS[month - 1],
-      income,
-      expense,
-      savingsRate:
-        income > 0
-          ? Number((((income - expense) / income) * 100).toFixed(1))
-          : 0,
+      label: date.toLocaleString("en-US", { month: "short" }),
+      title: date.toLocaleString("en-US", { month: "long", year: "numeric" }),
+      values: {
+        income,
+        expense,
+        rate: income > 0 ? Number((((income - expense) / income) * 100).toFixed(1)) : 0,
+      },
     };
   });
 }
-
-function formatMonthYear(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    year: "numeric",
-  }).format(value);
-}
-
-function formatAmount(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(value);
-}
-
-function formatCompactAmount(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
-}
-
-function formatPercent(value: number) {
-  return `${value.toFixed(1)}%`;
-}
-
-function toNumber(value: number | string | undefined) {
-  return Number(value ?? 0);
-}
-*/

@@ -1,19 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
-import Link from "next/link";
+import { motion, useReducedMotion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { Plus } from "lucide-react";
-import { Sidebar } from "@/components/layouts/Sidebar";
-
-const PAGE_NAMES: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/account": "Account",
-  "/transactions": "Transactions",
-  "/budgets": "Budgets",
-  "/reports": "Reports",
-  "/settings": "Settings",
-};
+import type { ReactNode } from "react";
+import { LogoMark } from "@/components/brand/Logo";
+import { AppHeader } from "@/components/layouts/AppHeader";
 
 type AppLayoutProps = {
   children: ReactNode;
@@ -21,36 +12,31 @@ type AppLayoutProps = {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
-  const pageName = PAGE_NAMES[pathname] ?? "";
+  const reduceMotion = useReducedMotion();
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
-      <div className="lg:pl-72">
-        <header className="sticky top-0 z-30 border-b border-line bg-surface/90 px-5 py-3 backdrop-blur-xl md:px-10">
-          <div className="mx-auto flex max-w-[1580px] items-center justify-between gap-4">
-            <span className="text-sm font-semibold text-foreground">{pageName}</span>
-            <Link
-              href="/transactions"
-              className="inline-flex h-8 items-center gap-1.5 rounded-control bg-primary px-3 text-xs font-semibold text-white shadow-[0_2px_8px_rgb(33_66_231_/_28%)] transition hover:bg-primary-hover"
-            >
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-              Transactions
-            </Link>
-          </div>
-        </header>
-        <main className="min-h-[calc(100vh-4rem)] px-5 py-8 text-foreground md:px-10 md:py-10">
-          <div className="mx-auto w-full max-w-[1580px]">{children}</div>
-        </main>
-        <footer className="border-t border-line px-5 py-5 text-xs text-muted md:px-10">
-          <div className="mx-auto flex max-w-[1580px] justify-center items-center text-center">
-            <span className="text-muted">
-              Personal Finance
-            </span>
-          </div>
-        </footer>
-      </div>
+    <div className="flex min-h-screen flex-col bg-background">
+      <AppHeader />
+      <main className="flex-1 px-5 pb-20 pt-10 text-foreground md:px-8 md:pt-14">
+        <motion.div
+          key={pathname}
+          initial={reduceMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="mx-auto w-full max-w-[1176px]"
+        >
+          {children}
+        </motion.div>
+      </main>
+      <footer className="border-t border-line px-5 md:px-8">
+        <div className="mx-auto flex h-16 max-w-[1176px] items-center justify-between text-[13px] text-muted">
+          <span className="inline-flex items-center gap-2.5">
+            <LogoMark className="h-3 w-3 [&>span]:h-1 [&>span]:w-1" />
+            Personal Finance
+          </span>
+          <span className="num">{new Date().getFullYear()}</span>
+        </div>
+      </footer>
     </div>
   );
 }
-

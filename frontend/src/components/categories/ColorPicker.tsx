@@ -1,71 +1,72 @@
 'use client';
 
-import { Check } from 'lucide-react';
+import { Check } from '@phosphor-icons/react';
+import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils/cn';
 
 // Preset colors — cover common use cases while keeping the UI clean.
-// These are Tailwind 600-level colors for consistent vibrancy.
 export const PRESET_COLORS = [
-  '#dc2626', // red-600
-  '#ea580c', // orange-600
-  '#d97706', // amber-600
-  '#65a30d', // lime-600
-  '#16a34a', // green-600
-  '#0891b2', // cyan-600
-  '#2563eb', // blue-600
-  '#7c3aed', // violet-600
-  '#db2777', // pink-600
-  '#0284c7', // sky-600
-  '#6b7280', // gray-500 (neutral default)
-  '#1e293b', // slate-800 (dark)
+  '#dc2626',
+  '#ea580c',
+  '#d97706',
+  '#65a30d',
+  '#16a34a',
+  '#0891b2',
+  '#2563eb',
+  '#7c3aed',
+  '#db2777',
+  '#0284c7',
+  '#6b7280',
+  '#1e293b',
 ];
 
 interface ColorPickerProps {
-  value: string;       // currently selected hex color
+  value: string;
   onChange: (color: string) => void;
 }
 
 export function ColorPicker({ value, onChange }: ColorPickerProps) {
   return (
     <div className="space-y-3">
-      {/* Preset color swatches */}
-      <div className="flex flex-wrap gap-2">
-        {PRESET_COLORS.map((color) => (
-          <button
-            key={color}
-            type="button"
-            onClick={() => onChange(color)}
-            className={cn(
-              'w-8 h-8 rounded-full transition-all focus:outline-none',
-              'focus:ring-2 focus:ring-offset-2 focus:ring-gray-400',
-              value === color && 'ring-2 ring-offset-2 ring-gray-600 scale-110',
-            )}
-            style={{ backgroundColor: color }}
-            title={color}
-          >
-            {value === color && (
-              <Check
-                size={14}
-                className="mx-auto text-white drop-shadow-sm"
-                strokeWidth={3}
-              />
-            )}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Color">
+        {PRESET_COLORS.map((color) => {
+          const selected = value.toLowerCase() === color;
+          return (
+            <button
+              key={color}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              aria-label={color}
+              onClick={() => onChange(color)}
+              className={cn(
+                'relative grid h-7 w-7 place-items-center rounded-full transition-transform duration-150 hover:scale-110 active:scale-95',
+                selected && 'ring-2 ring-offset-2 ring-offset-[var(--ds-surface)]',
+              )}
+              style={{ backgroundColor: color, ['--tw-ring-color' as string]: color }}
+              title={color}
+            >
+              {selected ? (
+                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 600, damping: 20 }}>
+                  <Check size={12} weight="bold" className="text-white" />
+                </motion.span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Custom color input for colors outside the preset palette */}
-      <div className="flex items-center gap-3">
+      <label className="inline-flex cursor-pointer items-center gap-3 rounded-[6px] border border-line py-1.5 pl-1.5 pr-3 text-[13px] text-muted transition-colors hover:border-line-strong">
         <input
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-8 h-8 rounded cursor-pointer border border-gray-200"
+          className="h-6 w-6 cursor-pointer rounded-[4px] border-0 bg-transparent p-0"
           title="Custom color"
         />
-        <span className="text-sm text-gray-500 font-mono">{value}</span>
-        <span className="text-xs text-gray-400">or pick a custom color</span>
-      </div>
+        <span className="font-mono text-foreground">{value}</span>
+        <span>Custom</span>
+      </label>
     </div>
   );
 }

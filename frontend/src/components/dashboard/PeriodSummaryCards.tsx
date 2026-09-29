@@ -1,9 +1,7 @@
 "use client";
 
-import { TrendingDown, TrendingUp, Wallet, Percent } from "lucide-react";
-
-import { cn } from "@/lib/utils/cn";
-import { formatDollar } from "@/lib/utils/format";
+import { Stagger, StaggerItem } from "@/components/motion/Reveal";
+import { StatTile, pct, usd, type Delta } from "@/components/dashboard/primitives";
 
 interface PeriodSummaryCardsProps {
   totalIncome: number;
@@ -11,15 +9,10 @@ interface PeriodSummaryCardsProps {
   savings: number;
   savingsRate: string;
   isLoading: boolean;
-}
-
-function SkeletonCard() {
-  return (
-    <div className="surface-card space-y-3 rounded-card bg-surface p-5">
-      <div className="h-3 w-1/2 animate-pulse rounded bg-canvas" />
-      <div className="h-7 w-2/3 animate-pulse rounded bg-canvas" />
-    </div>
-  );
+  /** Previous comparable period, when available. */
+  previous?: { totalIncome: number; totalExpense: number; savings: number; savingsRate: number } | null;
+  against?: string;
+  trends?: { income: number[]; expense: number[]; savings: number[] };
 }
 
 export function PeriodSummaryCards({
@@ -28,77 +21,65 @@ export function PeriodSummaryCards({
   savings,
   savingsRate,
   isLoading,
+  previous,
+  against = "previous period",
+  trends,
 }: PeriodSummaryCardsProps) {
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {Array.from({ length: 4 }, (_value, index) => (
-          <SkeletonCard key={index} />
-        ))}
-      </div>
-    );
-  }
+  const rate = Number(savingsRate) || 0;
+  const delta = (value: number, upIsGood: boolean, format: (v: number) => string): Delta | null =>
+    previous ? { value, upIsGood, against, format } : null;
 
   const cards = [
     {
-      label: "Total income",
-      value: formatDollar(totalIncome),
-      icon: TrendingUp,
-      iconColor: "text-success-bright",
-      valueColor: "text-ink",
-      accent: "border-l-success-bright",
+      label: "Income",
+      value: totalIncome,
+      format: usd,
+      dot: "var(--ds-series-income)",
+      delta: delta(totalIncome - (previous?.totalIncome ?? 0), true, usd),
+      trend: trends?.income,
     },
     {
-      label: "Total expenses",
-      value: formatDollar(totalExpense),
-      icon: TrendingDown,
-      iconColor: "text-danger",
-      valueColor: "text-ink",
-      accent: "border-l-danger",
+      label: "Expenses",
+      value: totalExpense,
+      format: usd,
+      dot: "var(--ds-series-expense)",
+      delta: delta(totalExpense - (previous?.totalExpense ?? 0), false, usd),
+      trend: trends?.expense,
     },
     {
       label: "Net savings",
-      value: (savings < 0 ? "-" : "") + formatDollar(Math.abs(savings)),
-      icon: Wallet,
-      iconColor: savings >= 0 ? "text-success" : "text-warning",
-      valueColor: savings >= 0 ? "text-ink" : "text-warning-ink",
-      accent: savings >= 0 ? "border-l-success" : "border-l-warning",
+      value: savings,
+      format: (v: number) => `${v < 0 ? "-" : ""}${usd(Math.abs(v))}`,
+      dot: "var(--ds-series-net)",
+      delta: delta(savings - (previous?.savings ?? 0), true, usd),
+      trend: trends?.savings,
     },
     {
       label: "Savings rate",
-      value: `${savingsRate}%`,
-      icon: Percent,
-      iconColor: "text-primary",
-      valueColor: "text-ink",
-      accent: "border-l-primary",
+      value: rate,
+      format: pct,
+      dot: undefined,
+      delta: delta(rate - (previous?.savingsRate ?? 0), true, (v: number) => `${v.toFixed(1)} pts`),
+      trend: undefined,
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {cards.map((card) => {
-        const Icon = card.icon;
-
-        return (
-          <div
-            key={card.label}
-            className={cn(
-              "surface-card rounded-card border-l-[3px] bg-surface p-5",
-              card.accent,
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <Icon aria-hidden="true" className={cn("shrink-0", card.iconColor)} size={14} />
-              <span className="text-xs font-medium text-muted">
-                {card.label}
-              </span>
-            </div>
-            <p className={cn("mt-2 text-2xl font-semibold tracking-tight", card.valueColor)}>
-              {card.value}
-            </p>
-          </div>
-        );
-      })}
-    </div>
+    <Stagger className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {cards.map((card) => (
+        <StaggerItem key={card.label}>
+          <StatTile
+            label={card.label}
+            value={card.value}
+            format={card.format}
+            dotColor={card.dot}
+            delta={card.delta}
+            trend={card.trend}
+            trendColor={card.dot}
+            isLoading={isLoading}
+          />
+        </StaggerItem>
+      ))}
+    </Stagger>
   );
 }

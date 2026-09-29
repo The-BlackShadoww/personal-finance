@@ -1,16 +1,19 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowRight } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { Notice } from "@/components/settings/ui";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { authApi } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
+import { cn } from "@/lib/utils/cn";
 
 const registerSchema = z
   .object({
@@ -32,16 +35,15 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
+    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
   });
+
+  const password = watch("password");
+  const strength = Math.min(4, Math.floor(password.length / 3));
 
   async function onSubmit(values: RegisterFormValues) {
     setFormError(null);
@@ -63,146 +65,86 @@ export default function RegisterPage() {
     }
   }
 
+  const fields: Array<{
+    name: keyof RegisterFormValues;
+    label: string;
+    type: string;
+    autoComplete: string;
+    placeholder: string;
+  }> = [
+    { name: "name", label: "Full name", type: "text", autoComplete: "name", placeholder: "Maya Okafor" },
+    { name: "email", label: "Email", type: "email", autoComplete: "email", placeholder: "you@example.com" },
+    { name: "password", label: "Password", type: "password", autoComplete: "new-password", placeholder: "At least 8 characters" },
+    { name: "confirmPassword", label: "Confirm password", type: "password", autoComplete: "new-password", placeholder: "••••••••" },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-1.5 text-center">
-        <h1 className="text-2xl font-bold tracking-tight text-ink md:text-3xl">
-          Create account
-        </h1>
-        <p className="text-sm text-muted">
-          Start tracking your finances with a secure account.
-        </p>
+    <div>
+      <p className="eyebrow">Create account</p>
+      <h1 className="mt-3 text-[32px] font-[380] leading-[1.1] tracking-[-0.025em]">
+        Start with one entry.
+        <span className="text-ghost"> The picture builds itself.</span>
+      </h1>
+
+      <div className="mt-8">
+        <Notice show={Boolean(formError)} tone="error">
+          {formError}
+        </Notice>
       </div>
 
-      <form className="space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
-        {formError ? (
-          <p
-            className="rounded-panel bg-danger-surface px-4 py-3 text-sm font-semibold text-white"
-            role="alert"
-          >
-            {formError}
-          </p>
-        ) : null}
+      <form className="mt-6 space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
+        {fields.map((field) => {
+          const error = errors[field.name];
+          const errorId = `${field.name}-error`;
+          return (
+            <div key={field.name}>
+              <label className="label" htmlFor={field.name}>
+                {field.label}
+              </label>
+              <input
+                id={field.name}
+                type={field.type}
+                autoComplete={field.autoComplete}
+                placeholder={field.placeholder}
+                aria-invalid={error ? "true" : "false"}
+                aria-describedby={error ? errorId : undefined}
+                className="field"
+                {...register(field.name)}
+              />
+              {field.name === "password" && password ? (
+                <div className="mt-2 flex gap-1" aria-hidden="true">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <span
+                      key={index}
+                      className={cn(
+                        "h-1 flex-1 rounded-full transition-colors duration-300",
+                        index < strength ? (strength >= 3 ? "bg-income" : "bg-expense") : "bg-surface-3",
+                      )}
+                    />
+                  ))}
+                </div>
+              ) : null}
+              {error ? (
+                <p className="mt-1.5 text-[12px] text-red-fg" id={errorId} role="alert">
+                  {error.message}
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
 
-        <div className="space-y-1.5">
-          <label
-            className="block text-xs font-semibold uppercase tracking-wider text-muted"
-            htmlFor="name"
-          >
-            Full Name
-          </label>
-          <input
-            id="name"
-            type="text"
-            autoComplete="name"
-            placeholder="Jane Doe"
-            aria-invalid={errors.name ? "true" : "false"}
-            aria-describedby={errors.name ? "name-error" : undefined}
-            className="w-full rounded-control border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition-all placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/20"
-            {...register("name")}
-          />
-          {errors.name ? (
-            <p className="text-xs font-medium text-danger" id="name-error" role="alert">
-              {errors.name.message}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="space-y-1.5">
-          <label
-            className="block text-xs font-semibold uppercase tracking-wider text-muted"
-            htmlFor="email"
-          >
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            placeholder="you@example.com"
-            aria-invalid={errors.email ? "true" : "false"}
-            aria-describedby={errors.email ? "email-error" : undefined}
-            className="w-full rounded-control border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition-all placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/20"
-            {...register("email")}
-          />
-          {errors.email ? (
-            <p className="text-xs font-medium text-danger" id="email-error" role="alert">
-              {errors.email.message}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="space-y-1.5">
-          <label
-            className="block text-xs font-semibold uppercase tracking-wider text-muted"
-            htmlFor="password"
-          >
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="At least 8 characters"
-            aria-invalid={errors.password ? "true" : "false"}
-            aria-describedby={errors.password ? "password-error" : undefined}
-            className="w-full rounded-control border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition-all placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/20"
-            {...register("password")}
-          />
-          {errors.password ? (
-            <p
-              className="text-xs font-medium text-danger"
-              id="password-error"
-              role="alert"
-            >
-              {errors.password.message}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="space-y-1.5">
-          <label
-            className="block text-xs font-semibold uppercase tracking-wider text-muted"
-            htmlFor="confirmPassword"
-          >
-            Confirm Password
-          </label>
-          <input
-            id="confirmPassword"
-            type="password"
-            autoComplete="new-password"
-            placeholder="••••••••"
-            aria-invalid={errors.confirmPassword ? "true" : "false"}
-            aria-describedby={
-              errors.confirmPassword ? "confirm-password-error" : undefined
-            }
-            className="w-full rounded-control border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition-all placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/20"
-            {...register("confirmPassword")}
-          />
-          {errors.confirmPassword ? (
-            <p
-              className="text-xs font-medium text-danger"
-              id="confirm-password-error"
-              role="alert"
-            >
-              {errors.confirmPassword.message}
-            </p>
-          ) : null}
-        </div>
-
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full h-11 px-4 text-sm font-semibold"
-        >
+        <Button type="submit" size="lg" disabled={isSubmitting} className="group w-full">
           {isSubmitting ? <Spinner /> : null}
-          {isSubmitting ? "Creating account..." : "Create account"}
+          {isSubmitting ? "Creating account…" : "Create account"}
+          {!isSubmitting ? (
+            <ArrowRight size={14} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
+          ) : null}
         </Button>
       </form>
 
-      <p className="text-center text-sm text-muted">
+      <p className="mt-8 border-t border-line pt-6 text-[14px] text-muted">
         Already have an account?{" "}
-        <Link className="font-semibold text-primary transition-colors hover:text-primary-hover" href="/login">
+        <Link className="text-foreground underline-offset-4 hover:underline" href="/login">
           Log in
         </Link>
       </p>
