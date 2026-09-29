@@ -35,7 +35,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               className="inline-flex h-8 items-center gap-1.5 rounded-control bg-primary px-3 text-xs font-semibold text-white shadow-[0_2px_8px_rgb(33_66_231_/_28%)] transition hover:bg-primary-hover"
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-              Add transaction
+              Transactions
             </Link>
           </div>
         </header>
