@@ -1,4 +1,4 @@
-import { buildUrl, getAccessToken } from './client';
+import { buildUrl, ensureAccessToken, getAccessToken } from './client';
 
 export interface ReportDownloadParams {
   startYear: number;
@@ -11,6 +11,8 @@ async function downloadReportBlob(
   endpoint: string,
   params: ReportDownloadParams,
 ): Promise<Blob> {
+  // The access token is in-memory and short-lived; renew it if needed.
+  await ensureAccessToken();
   const token = getAccessToken();
 
   const searchParams = new URLSearchParams({

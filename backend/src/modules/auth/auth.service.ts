@@ -8,11 +8,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { randomBytes, randomUUID } from 'crypto';
-import { and, desc, eq, gt, isNull } from 'drizzle-orm';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
+import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import * as QRCode from 'qrcode';
 import { encryptSecret, decryptSecret } from './utils/crypto.utils';
+import { UserCacheService } from '../../common/cache/user-cache.service';
 import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
 import { categories, refreshTokens, users } from '../../db/schema';
 import { LoginDto } from './dto/login.dto';
@@ -45,6 +46,7 @@ export class AuthService {
     @Inject(DB_TOKEN) private readonly db: DrizzleDB,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly userCache: UserCacheService,
   ) {}
 
   async upsertGoogleUser(googleUser: {
@@ -106,6 +108,7 @@ export class AuthService {
           .where(eq(users.id, existingByEmail[0].id))
           .returning({ id: users.id, email: users.email, name: users.name });
 
+        this.userCache.invalidate(updatedUser.id);
         return updatedUser;
       }
     }
@@ -223,6 +226,8 @@ export class AuthService {
 
     const tokenFamily = family as TokenFamily;
 
+    // Joining users folds the "is the account still active" check into the
+    // token lookup, saving a round trip on every refresh.
     const now = new Date();
     const [activeToken] = await this.db
       .select({
@@ -231,6 +236,10 @@ export class AuthService {
         tokenHash: refreshTokens.tokenHash,
       })
       .from(refreshTokens)
+      .innerJoin(
+        users,
+        and(eq(users.id, refreshTokens.userId), isNull(users.deletedAt)),
+      )
       .where(
         and(
           eq(refreshTokens.tokenFamily, tokenFamily),
@@ -259,58 +268,100 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const tokenMatches = await bcrypt.compare(rawToken, activeToken.tokenHash);
+    const tokenMatches = await this.verifyRefreshTokenHash(
+      rawToken,
+      activeToken.tokenHash,
+    );
 
     if (!tokenMatches) {
       await this.revokeAllRefreshTokens(activeToken.userId);
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const [user] = await this.db
-      .select({ id: users.id })
-      .from(users)
-      .where(and(eq(users.id, activeToken.userId), isNull(users.deletedAt)))
-      .limit(1);
+    // Revoke the presented token and issue its successor in one statement.
+    // The `is_revoked = false` guard makes rotation atomic: if two requests
+    // race with the same token, only one gets a successor.
+    const next = this.createRefreshTokenSecret();
+    const rotated = await this.db.execute<{ id: string }>(sql`
+      WITH revoked AS (
+        UPDATE refresh_tokens
+        SET is_revoked = true
+        WHERE id = ${activeToken.id} AND is_revoked = false
+        RETURNING user_id
+      )
+      INSERT INTO refresh_tokens (user_id, token_family, token_hash, expires_at, is_revoked)
+      SELECT user_id, ${tokenFamily}::uuid, ${next.hash}, ${this.refreshTokenExpiry().toISOString()}::timestamptz, false
+      FROM revoked
+      RETURNING id
+    `);
 
-    if (!user) {
+    if (rotated.length === 0) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    await this.db
-      .update(refreshTokens)
-      .set({ isRevoked: true })
-      .where(eq(refreshTokens.id, activeToken.id));
-
-    return this.generateTokens(user.id, tokenFamily);
+    return {
+      accessToken: this.signAccessToken(activeToken.userId),
+      refreshToken: `${tokenFamily}.${next.value}`,
+    };
   }
 
   async generateTokens(
     userId: string,
     tokenFamily: TokenFamily = randomUUID(),
   ): Promise<TokenResult> {
-    const accessToken = this.jwtService.sign({
-      sub: userId,
-      type: 'access',
-    });
-
-    const refreshTokenValue = randomBytes(64).toString('hex');
-    const tokenHash = await bcrypt.hash(refreshTokenValue, 12);
-
-    const refreshExpiresIn =
-      this.configService.get<string>('jwt.refreshTokenExpiresIn') ?? '7d';
-    const expiresAt = new Date(
-      Date.now() + this.parseDuration(refreshExpiresIn),
-    );
+    const next = this.createRefreshTokenSecret();
 
     await this.db.insert(refreshTokens).values({
       userId,
       tokenFamily,
-      tokenHash,
-      expiresAt,
+      tokenHash: next.hash,
+      expiresAt: this.refreshTokenExpiry(),
       isRevoked: false,
     });
 
-    return { accessToken, refreshToken: `${tokenFamily}.${refreshTokenValue}` };
+    return {
+      accessToken: this.signAccessToken(userId),
+      refreshToken: `${tokenFamily}.${next.value}`,
+    };
+  }
+
+  private signAccessToken(userId: string): string {
+    return this.jwtService.sign({ sub: userId, type: 'access' });
+  }
+
+  private refreshTokenExpiry(): Date {
+    const refreshExpiresIn =
+      this.configService.get<string>('jwt.refreshTokenExpiresIn') ?? '7d';
+    return new Date(Date.now() + this.parseDuration(refreshExpiresIn));
+  }
+
+  // Refresh tokens are 64 random bytes, so a fast SHA-256 digest is as strong
+  // as a slow password hash here; bcrypt only makes sense for low-entropy
+  // human passwords.
+  private createRefreshTokenSecret(): { value: string; hash: string } {
+    const value = randomBytes(64).toString('hex');
+    return { value, hash: this.hashRefreshToken(value) };
+  }
+
+  private hashRefreshToken(value: string): string {
+    return createHash('sha256').update(value).digest('hex');
+  }
+
+  private async verifyRefreshTokenHash(
+    rawToken: string,
+    storedHash: string,
+  ): Promise<boolean> {
+    // Tokens issued before the switch to SHA-256 were bcrypt-hashed; accept
+    // them until they expire so existing sessions survive the deploy.
+    if (storedHash.startsWith('$2')) {
+      return bcrypt.compare(rawToken, storedHash);
+    }
+
+    const expected = Buffer.from(storedHash, 'hex');
+    const actual = Buffer.from(this.hashRefreshToken(rawToken), 'hex');
+    return (
+      expected.length === actual.length && timingSafeEqual(expected, actual)
+    );
   }
 
   async setupTwoFactor(
@@ -396,6 +447,7 @@ export class AuthService {
       .set({ twoFactorEnabled: true, updatedAt: new Date() })
       .where(eq(users.id, userId));
 
+    this.userCache.invalidate(userId);
     return { success: true };
   }
 
@@ -496,6 +548,7 @@ export class AuthService {
       })
       .where(eq(users.id, userId));
 
+    this.userCache.invalidate(userId);
     return { success: true };
   }
 
