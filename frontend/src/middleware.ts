@@ -69,9 +69,9 @@ function buildPolicy(
     // React needs eval only in development (error overlays).
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
     // Style attributes rendered by React/framer-motion cannot carry a nonce,
-    // so styles stay permissive. Google Fonts serves the font stylesheet.
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    // so inline styles stay allowed. Fonts are self-hosted via next/font.
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'",
     // Profile avatars are user-supplied URLs on arbitrary HTTPS hosts.
     "img-src 'self' blob: data: https:",
     // API calls go through the same-origin /api/v1 rewrite. Dev adds the
