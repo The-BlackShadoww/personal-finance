@@ -19,9 +19,11 @@ const NET = { key: "net", label: "Net savings", color: "var(--ds-series-net)" };
 export function YearlyView() {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
-  const { data, isLoading, isFetching, error } = useYearlySummary(year);
+  const { data, isLoading, isPlaceholderData, error } = useYearlySummary(year);
   const { data: prior } = useYearlySummary(year - 1);
-  const loading = isLoading || isFetching;
+  // Skeletons only when nothing is cached; background refetches and period
+  // changes keep the current numbers on screen (dimmed while stale).
+  const loading = isLoading;
   const hasPriorYear = Boolean(
     prior?.monthlyBreakdown.some((row) => row.totalIncome !== 0 || row.totalExpense !== 0),
   );
@@ -40,7 +42,7 @@ export function YearlyView() {
   );
 
   return (
-    <div className="space-y-8">
+    <div className={`space-y-8 transition-opacity duration-150 ${isPlaceholderData ? "opacity-60" : ""}`} aria-busy={isPlaceholderData}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-md text-[14px] text-muted">
           Review the full picture before planning what comes next.

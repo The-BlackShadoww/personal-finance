@@ -108,14 +108,13 @@ export default function TransactionsPage() {
 
   function confirmDelete() {
     if (!transactionToDelete) return;
-    deleteTransaction.mutate(transactionToDelete.id, {
-      onSuccess: () => {
-        if (transactions.length === 1 && page > 1) {
-          setPage((current) => current - 1);
-        }
-        setTransactionToDelete(null);
-      },
-    });
+    // The row is removed optimistically, so close the dialog without waiting
+    // for the server; a failure restores the row and shows a toast.
+    deleteTransaction.mutate(transactionToDelete.id);
+    if (transactions.length === 1 && page > 1) {
+      setPage((current) => current - 1);
+    }
+    setTransactionToDelete(null);
   }
 
   return (

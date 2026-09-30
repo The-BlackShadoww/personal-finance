@@ -2,7 +2,8 @@
 
 import { Plus } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AreaChart } from "@/components/charts/AreaChart";
 import { BarChart } from "@/components/charts/BarChart";
@@ -19,7 +20,7 @@ import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { buttonClass } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import type { YearlySummary } from "@/lib/api/calculations";
-import { useDashboardOverview } from "@/lib/hooks/useDashboardOverview";
+import { prefetchDashboardOverview, useDashboardOverview } from "@/lib/hooks/useDashboardOverview";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { cn } from "@/lib/utils/cn";
 
@@ -59,7 +60,7 @@ export default function DashboardPage() {
           initial={reduceMotion ? false : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
         >
           {activePeriod === "monthly" ? <MonthlyView /> : activePeriod === "quarterly" ? <QuarterlyView /> : <YearlyView />}
         </motion.div>
@@ -75,8 +76,22 @@ function MonthlyView() {
   const year = selectedDate.getFullYear();
   const month = selectedDate.getMonth() + 1;
 
+  const queryClient = useQueryClient();
   const overview = useDashboardOverview(year, month);
   const monthly = overview.data?.monthly;
+
+  // Once this month is on screen, warm the neighbouring months so stepping
+  // with the period arrows renders from cache.
+  const overviewReady = overview.isSuccess && !overview.isPlaceholderData;
+  useEffect(() => {
+    if (!overviewReady) return;
+    const previous = new Date(year, month - 2, 1);
+    void prefetchDashboardOverview(queryClient, previous.getFullYear(), previous.getMonth() + 1);
+    const next = new Date(year, month, 1);
+    if (next <= new Date()) {
+      void prefetchDashboardOverview(queryClient, next.getFullYear(), next.getMonth() + 1);
+    }
+  }, [month, overviewReady, queryClient, year]);
   const yearly = overview.data?.yearly;
   const previousYearly = overview.data?.previousYearly ?? undefined;
   const categoryBreakdown = overview.data?.categoryBreakdown;
@@ -111,7 +126,10 @@ function MonthlyView() {
   const hasFlow = points.some((point) => point.values.income || point.values.expense);
 
   return (
-    <div className="space-y-8">
+    <div
+      className={cn("space-y-8 transition-opacity duration-150", overview.isPlaceholderData && "opacity-60")}
+      aria-busy={overview.isPlaceholderData}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[14px] text-muted">
           Showing <span className="text-foreground">{monthLabel}</span>

@@ -9,9 +9,12 @@ import { Logo } from "@/components/brand/Logo";
 import { EASE_OUT_EXPO } from "@/components/motion/Reveal";
 import { buttonClass } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/lib/api/auth";
 import { clearAccessToken } from "@/lib/api/client";
 import { useProfile } from "@/lib/hooks/useProfile";
+import { clearPersistedQueries } from "@/lib/query/persistence";
+import { prefetchRoute } from "@/lib/query/prefetchRoute";
 import { cn } from "@/lib/utils/cn";
 
 export const NAVIGATION = [
@@ -26,6 +29,7 @@ export const NAVIGATION = [
 export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const reduceMotion = useReducedMotion();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -50,12 +54,20 @@ export function AppHeader() {
     };
   }, [menuOpen]);
 
+  // Hover, keyboard focus and touch all signal an imminent navigation.
+  function prefetchHandlers(href: string) {
+    const prefetch = () => prefetchRoute(queryClient, href);
+    return { onMouseEnter: prefetch, onFocus: prefetch, onTouchStart: prefetch };
+  }
+
   async function handleLogout() {
     setIsLoggingOut(true);
     try {
       await authApi.logout();
     } finally {
       clearAccessToken();
+      queryClient.clear();
+      clearPersistedQueries();
       router.push("/login");
       router.refresh();
     }
@@ -79,6 +91,7 @@ export function AppHeader() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  {...prefetchHandlers(item.href)}
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "relative rounded-[6px] px-3 py-1.5 text-[14px] transition-colors duration-200",
@@ -142,6 +155,7 @@ export function AppHeader() {
                   >
                     <Link
                       href={item.href}
+                      {...prefetchHandlers(item.href)}
                       aria-current={active ? "page" : undefined}
                       className={cn(
                         "flex items-center justify-between border-b border-line py-4 text-[28px] tracking-[-0.02em]",

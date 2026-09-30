@@ -86,7 +86,7 @@ export function AccountBalanceWidget({ className, summary, isLoading }: AccountB
       <AnimatedNumber
         value={summary.currentBalanceCents / 100}
         format={(value) => `${value < 0 ? "-" : ""}${formatDollar(value)}`}
-        duration={1.4}
+        duration={0.7}
         className="num relative mt-5 block text-[44px] font-[360] leading-none tracking-[-0.045em] text-foreground sm:text-[56px] md:text-[64px]"
       />
 

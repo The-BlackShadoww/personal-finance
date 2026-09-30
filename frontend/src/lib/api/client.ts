@@ -1,3 +1,4 @@
+import { clearPersistedQueries } from "@/lib/query/persistence";
 import type { ApiResponse } from "@/types/api";
 
 let accessToken: string | null = null;
@@ -257,6 +258,7 @@ async function redirectToLogin() {
   // Many requests can fail together; only the first should log out and navigate.
   if (typeof window !== "undefined" && !redirectingToLogin) {
     redirectingToLogin = true;
+    clearPersistedQueries();
     await clearServerSession();
     window.location.assign("/login");
   }
