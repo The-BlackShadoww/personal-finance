@@ -35,14 +35,16 @@ export function QuarterlyView() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedQuarter, setSelectedQuarter] = useState<number>(currentQuarter);
 
-  const { data: summary, isLoading, isFetching, error } = useQuarterlySummary(selectedYear, selectedQuarter);
+  const { data: summary, isLoading, isPlaceholderData, error } = useQuarterlySummary(selectedYear, selectedQuarter);
   const previousQuarter = selectedQuarter === 1 ? 4 : selectedQuarter - 1;
   const previousYear = selectedQuarter === 1 ? selectedYear - 1 : selectedYear;
   const { data: previousSummary } = useQuarterlySummary(previousYear, previousQuarter);
 
   const selectedQuarterMeta = QUARTERS.find((quarter) => quarter.q === selectedQuarter) ?? QUARTERS[0];
   const isCurrentQuarter = selectedYear === currentYear && selectedQuarter === currentQuarter;
-  const loading = isLoading || isFetching;
+  // Skeletons only when nothing is cached; background refetches and period
+  // changes keep the current numbers on screen (dimmed while stale).
+  const loading = isLoading;
 
   function goToPreviousQuarter() {
     if (selectedQuarter > 1) {
@@ -74,7 +76,7 @@ export function QuarterlyView() {
   );
 
   return (
-    <div className="space-y-8">
+    <div className={`space-y-8 transition-opacity duration-150 ${isPlaceholderData ? "opacity-60" : ""}`} aria-busy={isPlaceholderData}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SegmentedControl
           label="Quarter"

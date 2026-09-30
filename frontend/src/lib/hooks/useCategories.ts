@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { categoriesApi, CreateCategoryPayload, UpdateCategoryPayload } from '../api/categories';
 
 export const categoryKeys = {
@@ -6,13 +6,15 @@ export const categoryKeys = {
   lists: () => [...categoryKeys.all, 'list'] as const,
 };
 
-export function useCategories(enabled = true) {
-  return useQuery({
+export const categoriesQueryOptions = () =>
+  queryOptions({
     queryKey: categoryKeys.lists(),
     queryFn: categoriesApi.getAll,
-    enabled,
     staleTime: 1000 * 60 * 10,   // 10 minutes — categories rarely change
   });
+
+export function useCategories(enabled = true) {
+  return useQuery({ ...categoriesQueryOptions(), enabled });
 }
 
 export function useCreateCategory() {

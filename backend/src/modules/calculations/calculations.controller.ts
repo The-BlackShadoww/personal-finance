@@ -74,6 +74,50 @@ export class CalculationsController {
   }
 
   @ApiOperation({
+    summary: 'Get totals for a range of months',
+    description:
+      'Returns combined income, expenses, savings and transaction count for an inclusive ' +
+      'range of billing months, which may span years.',
+  })
+  @ApiQuery({ name: 'startYear', required: true, example: 2025 })
+  @ApiQuery({ name: 'startMonth', required: true, example: 1 })
+  @ApiQuery({ name: 'endYear', required: true, example: 2025 })
+  @ApiQuery({ name: 'endMonth', required: true, example: 12 })
+  @ApiResponse({ status: 200, description: 'Range summary' })
+  @Get('range')
+  getRangeSummary(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('startYear', ParseIntPipe) startYear: number,
+    @Query('startMonth', ParseIntPipe) startMonth: number,
+    @Query('endYear', ParseIntPipe) endYear: number,
+    @Query('endMonth', ParseIntPipe) endMonth: number,
+  ) {
+    return this.calculationsService.getRangeSummary(
+      user.id,
+      { year: startYear, month: startMonth },
+      { year: endYear, month: endMonth },
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Get everything the monthly dashboard shows',
+    description:
+      'Returns the monthly summary, yearly breakdown (plus the previous year when the ' +
+      'six-month trend crosses into it), category breakdown and account summary in one response.',
+  })
+  @ApiQuery({ name: 'year', required: true, example: 2025 })
+  @ApiQuery({ name: 'month', required: true, example: 1 })
+  @ApiResponse({ status: 200, description: 'Dashboard overview' })
+  @Get('dashboard')
+  getDashboardOverview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('year', ParseIntPipe) year: number,
+    @Query('month', ParseIntPipe) month: number,
+  ) {
+    return this.calculationsService.getDashboardOverview(user.id, year, month);
+  }
+
+  @ApiOperation({
     summary: 'Get spending breakdown by category',
     description: 'Returns total amount and transaction count grouped by category for the specified month. Results are sorted by total amount descending.',
   })

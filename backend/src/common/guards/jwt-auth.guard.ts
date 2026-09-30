@@ -12,6 +12,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import type { Request } from 'express';
 import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
 import { users } from '../../db/schema';
+import { UserCacheService } from '../cache/user-cache.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 type AccessTokenPayload = {
@@ -26,6 +27,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     @Inject(DB_TOKEN) private readonly db: DrizzleDB,
+    private readonly userCache: UserCacheService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -57,18 +59,7 @@ export class JwtAuthGuard implements CanActivate {
         throw new UnauthorizedException();
       }
 
-      const [user] = await this.db
-        .select({
-          id: users.id,
-          email: users.email,
-          name: users.name,
-          avatarUrl: users.avatarUrl,
-          twoFactorEnabled: users.twoFactorEnabled,
-          timezone: users.timezone,
-        })
-        .from(users)
-        .where(and(eq(users.id, payload.sub), isNull(users.deletedAt)))
-        .limit(1);
+      const user = await this.loadUser(payload.sub);
 
       if (!user) {
         throw new UnauthorizedException();
@@ -79,6 +70,33 @@ export class JwtAuthGuard implements CanActivate {
     } catch {
       throw new UnauthorizedException();
     }
+  }
+
+  private async loadUser(userId: string) {
+    const cached = this.userCache.get(userId);
+
+    if (cached) {
+      return cached;
+    }
+
+    const [user] = await this.db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        avatarUrl: users.avatarUrl,
+        twoFactorEnabled: users.twoFactorEnabled,
+        timezone: users.timezone,
+      })
+      .from(users)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .limit(1);
+
+    if (user) {
+      this.userCache.set(user);
+    }
+
+    return user;
   }
 
   private extractTokenFromHeader(request: Request): string | undefined {

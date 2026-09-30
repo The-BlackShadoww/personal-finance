@@ -22,7 +22,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           key={pathname}
           initial={reduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
           className="mx-auto w-full max-w-[1176px]"
         >
           {children}

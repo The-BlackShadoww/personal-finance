@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { and, eq, isNull } from 'drizzle-orm';
+import { UserCacheService } from '../../common/cache/user-cache.service';
 import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
 import { users } from '../../db/schema';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -14,7 +15,10 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(@Inject(DB_TOKEN) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DB_TOKEN) private readonly db: DrizzleDB,
+    private readonly userCache: UserCacheService,
+  ) {}
 
   async updateProfile(
     userId: string,
@@ -42,6 +46,7 @@ export class UsersService {
       });
 
     if (!updated) throw new NotFoundException('User not found');
+    this.userCache.invalidate(userId);
     return updated;
   }
 

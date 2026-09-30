@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
-import { apiClient } from "@/lib/api/client";
+import { useAccountSummary } from "@/lib/hooks/useAccount";
 
 const transactionSchema = z.object({
   type: z.enum(["income", "expense"]),
@@ -61,9 +61,8 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
   const createTransaction = useCreateTransaction();
   const updateTransaction = useUpdateTransaction();
   const isEditing = Boolean(transaction);
+  const { data: accountSummary } = useAccountSummary();
   const [amountDisplay, setAmountDisplay] = useState("");
-  const [projectedBalance, setProjectedBalance] = useState<number | null>(null);
-  const [isProjectedLow, setIsProjectedLow] = useState(false);
 
   const {
     register,
@@ -107,24 +106,17 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
     setAmountDisplay(formatAmount(values.amount));
   }, [reset, transaction]);
 
-  useEffect(() => {
-    if (!amountValue || amountValue <= 0) {
-      setProjectedBalance(null);
-      return;
-    }
-    const amountCents = Math.round(amountValue * 100);
-    apiClient<{
-      data?: { projectedBalanceCents: number; isLowBalance: boolean };
-      projectedBalanceCents: number;
-      isLowBalance: boolean;
-    }>(`/transactions/projected-balance?amount=${amountCents}&type=${selectedType}`)
-      .then((response) => {
-        const result = response.data ?? response;
-        setProjectedBalance(result.projectedBalanceCents);
-        setIsProjectedLow(result.isLowBalance);
-      })
-      .catch(() => setProjectedBalance(null));
-  }, [amountValue, selectedType]);
+  // Derived locally from the cached account summary instead of asking the
+  // server on every keystroke; same formula as /transactions/projected-balance.
+  const projectedBalance =
+    accountSummary && amountValue > 0
+      ? accountSummary.currentBalanceCents +
+        (selectedType === "income" ? 1 : -1) * Math.round(amountValue * 100)
+      : null;
+  const isProjectedLow =
+    projectedBalance !== null && accountSummary !== undefined
+      ? projectedBalance < accountSummary.lowBalanceThresholdCents
+      : false;
 
   function handleTypeChange(nextType: "income" | "expense") {
     setValue("type", nextType, { shouldDirty: true, shouldValidate: true });

@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight } from "@phosphor-icons/react";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -13,6 +14,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Notice } from "@/components/settings/ui";
 import { authApi } from "@/lib/api/auth";
 import { ApiError, setAccessToken } from "@/lib/api/client";
+import { clearPersistedQueries } from "@/lib/query/persistence";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Enter a valid email address"),
@@ -40,6 +42,7 @@ type LoginFormProps = {
 
 function LoginForm({ registered }: LoginFormProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [formError, setFormError] = useState<string | null>(null);
   const {
     register,
@@ -63,6 +66,9 @@ function LoginForm({ registered }: LoginFormProps) {
       }
 
       setAccessToken(response.data.accessToken);
+      // Never show a previous account's cached data to the one signing in.
+      queryClient.clear();
+      clearPersistedQueries();
       router.push("/dashboard");
     } catch (error) {
       if (error instanceof ApiError && error.statusCode === 401) {

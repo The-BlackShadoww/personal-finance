@@ -8,12 +8,19 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { SectorsBreakdown } from "@/components/dashboard/SectorsBreakdown";
 import { AnimatedNumber } from "@/components/motion/Reveal";
 import { buttonClass } from "@/components/ui/Button";
-import { useAccountSummary } from "@/lib/hooks/useAccount";
+import type { AccountSummary } from "@/lib/api/account";
 import { cn } from "@/lib/utils/cn";
 import { formatDollar } from "@/lib/utils/format";
 
-export function AccountBalanceWidget({ className }: { className?: string }) {
-  const { data: summary, isLoading } = useAccountSummary();
+type AccountBalanceWidgetProps = {
+  className?: string;
+  // Supplied by the dashboard overview request rather than fetched here, so
+  // the dashboard needs one round trip instead of two.
+  summary: AccountSummary | undefined;
+  isLoading: boolean;
+};
+
+export function AccountBalanceWidget({ className, summary, isLoading }: AccountBalanceWidgetProps) {
   const [open, setOpen] = useState(false);
   const reduceMotion = useReducedMotion();
 
@@ -79,7 +86,7 @@ export function AccountBalanceWidget({ className }: { className?: string }) {
       <AnimatedNumber
         value={summary.currentBalanceCents / 100}
         format={(value) => `${value < 0 ? "-" : ""}${formatDollar(value)}`}
-        duration={1.4}
+        duration={0.7}
         className="num relative mt-5 block text-[44px] font-[360] leading-none tracking-[-0.045em] text-foreground sm:text-[56px] md:text-[64px]"
       />
 

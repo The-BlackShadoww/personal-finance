@@ -114,9 +114,11 @@ export class TransactionsService {
         transactionYear: dto.transactionYear,
         note: dto.note,
       })
-      .returning({ id: transactions.id });
+      .returning();
 
-    return this.findOne(userId, created.id);
+    // The category was loaded for validation above, so the response can be
+    // assembled without reading the row back.
+    return { ...created, category };
   }
 
   async update(
@@ -181,7 +183,7 @@ export class TransactionsService {
       return existing;
     }
 
-    await this.db
+    const [updated] = await this.db
       .update(transactions)
       .set({ ...updates, updatedAt: new Date() })
       .where(
@@ -190,15 +192,20 @@ export class TransactionsService {
           eq(transactions.userId, userId),
           isNull(transactions.deletedAt),
         ),
-      );
+      )
+      .returning();
 
-    return this.findOne(userId, transactionId);
+    if (!updated) {
+      throw new NotFoundException('Transaction not found');
+    }
+
+    return { ...updated, category };
   }
 
   async remove(userId: string, transactionId: string) {
-    await this.findOne(userId, transactionId);
-
-    await this.db
+    // The ownership and not-already-deleted conditions live in the WHERE
+    // clause, so a single statement both checks and deletes.
+    const [removed] = await this.db
       .update(transactions)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(
@@ -207,7 +214,12 @@ export class TransactionsService {
           eq(transactions.userId, userId),
           isNull(transactions.deletedAt),
         ),
-      );
+      )
+      .returning({ id: transactions.id });
+
+    if (!removed) {
+      throw new NotFoundException('Transaction not found');
+    }
 
     return { success: true };
   }

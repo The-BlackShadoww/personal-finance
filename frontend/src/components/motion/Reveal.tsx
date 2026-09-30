@@ -27,7 +27,7 @@ export function Reveal({ delay = 0, y = 12, once = true, children, ...props }: R
       initial={reduceMotion ? false : { opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once, margin: "0px 0px -8% 0px" }}
-      transition={{ duration: 0.7, ease: EASE_OUT_EXPO, delay }}
+      transition={{ duration: 0.35, ease: EASE_OUT_EXPO, delay }}
       {...props}
     >
       {children}
@@ -38,7 +38,7 @@ export function Reveal({ delay = 0, y = 12, once = true, children, ...props }: R
 /** Parent for cascading children. Pair with <StaggerItem>. */
 export function Stagger({
   children,
-  step = 0.08,
+  step = 0.05,
   delay = 0,
   className,
   inView = false,
@@ -80,7 +80,7 @@ export function StaggerItem({ children, className, y = 12, ...props }: HTMLMotio
       className={className}
       variants={{
         hidden: { opacity: 0, y },
-        show: { opacity: 1, y: 0, transition: { duration: 0.65, ease: EASE_OUT_EXPO } },
+        show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: EASE_OUT_EXPO } },
       }}
       {...props}
     >
@@ -93,7 +93,7 @@ export function StaggerItem({ children, className, y = 12, ...props }: HTMLMotio
 export function AnimatedNumber({
   value,
   format,
-  duration = 1.1,
+  duration = 0.6,
   className,
 }: {
   value: number;

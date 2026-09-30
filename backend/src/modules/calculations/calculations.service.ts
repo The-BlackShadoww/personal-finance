@@ -1,13 +1,11 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
+import { AccountService } from '../account/account.service';
 
-type AggregationRow = {
+type MonthlyAggregationRow = {
+  year: number | string;
+  month: number | string;
   total_income_cents: number | string | null;
   total_expense_cents: number | string | null;
   transaction_count: number | string;
@@ -22,55 +20,45 @@ type CategoryBreakdownRow = {
   count: number | string;
 };
 
+type YearMonth = { year: number; month: number };
+
+type MonthTotals = {
+  incomeCents: number;
+  expenseCents: number;
+  count: number;
+};
+
+const EMPTY_TOTALS: MonthTotals = { incomeCents: 0, expenseCents: 0, count: 0 };
+
 @Injectable()
 export class CalculationsService {
-  constructor(@Inject(DB_TOKEN) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DB_TOKEN) private readonly db: DrizzleDB,
+    private readonly accountService: AccountService,
+  ) {}
+
+  // Billing period is explicit — no timezone conversion needed.
+  // transaction_month and transaction_year were set by the user when recording the transaction.
 
   async getMonthlySummary(userId: string, year: number, month: number) {
     this.assertMonth(month);
-    // Billing period is explicit — no timezone conversion needed.
-    // transaction_month and transaction_year were set by the user when recording the transaction.
+    const period = { year, month };
+    const totals = await this.getMonthTotals(userId, period, period);
 
-    const rows = await this.db.execute<AggregationRow>(sql`
-      SELECT
-        SUM(CASE WHEN type = 'income' THEN amount_cents ELSE 0 END) as total_income_cents,
-        SUM(CASE WHEN type = 'expense' THEN amount_cents ELSE 0 END) as total_expense_cents,
-        COUNT(*) as transaction_count
-      FROM transactions
-      WHERE user_id = ${userId}
-        AND transaction_year = ${year}
-        AND transaction_month = ${month}
-        AND transaction_year > 0 AND transaction_month > 0
-        AND deleted_at IS NULL
-    `);
-
-    return this.toSummary(year, month, rows[0]);
+    return this.toMonthlySummary(
+      period,
+      totals.get(this.periodKey(year, month)),
+    );
   }
 
   async getQuarterlySummary(userId: string, year: number, quarter: number) {
     this.assertQuarter(quarter);
     const startMonth = (quarter - 1) * 3 + 1;
     const endMonth = startMonth + 2;
-
-    const rows = await this.db.execute<AggregationRow>(sql`
-      SELECT
-        SUM(CASE WHEN type = 'income' THEN amount_cents ELSE 0 END) as total_income_cents,
-        SUM(CASE WHEN type = 'expense' THEN amount_cents ELSE 0 END) as total_expense_cents,
-        COUNT(*) as transaction_count
-      FROM transactions
-      WHERE user_id = ${userId}
-        AND transaction_year = ${year}
-        AND transaction_month BETWEEN ${startMonth} AND ${endMonth}
-        AND transaction_year > 0 AND transaction_month > 0
-        AND deleted_at IS NULL
-    `);
-
-    const summary = this.toPeriodSummary(rows[0]);
-    const monthlyBreakdown = await this.getMonthlyBreakdown(
+    const totals = await this.getMonthTotals(
       userId,
-      year,
-      startMonth,
-      endMonth,
+      { year, month: startMonth },
+      { year, month: endMonth },
     );
 
     return {
@@ -78,37 +66,80 @@ export class CalculationsService {
       quarter,
       startMonth,
       endMonth,
-      ...summary,
-      monthlyBreakdown,
+      ...this.buildPeriod(totals, year, startMonth, endMonth),
     };
   }
 
   async getYearlySummary(userId: string, year: number) {
-
-    const rows = await this.db.execute<AggregationRow>(sql`
-      SELECT
-        SUM(CASE WHEN type = 'income' THEN amount_cents ELSE 0 END) as total_income_cents,
-        SUM(CASE WHEN type = 'expense' THEN amount_cents ELSE 0 END) as total_expense_cents,
-        COUNT(*) as transaction_count
-      FROM transactions
-      WHERE user_id = ${userId}
-        AND transaction_year = ${year}
-        AND transaction_year > 0 AND transaction_month > 0
-        AND deleted_at IS NULL
-    `);
-
-    const summary = this.toPeriodSummary(rows[0]);
-    const monthlyBreakdown = await this.getMonthlyBreakdown(
+    const totals = await this.getMonthTotals(
       userId,
-      year,
-      1,
-      12,
+      { year, month: 1 },
+      { year, month: 12 },
     );
+
+    return { year, ...this.buildPeriod(totals, year, 1, 12) };
+  }
+
+  /**
+   * Totals across an inclusive span of months, possibly crossing years.
+   * Replaces fetching one monthly summary per month in the range.
+   */
+  async getRangeSummary(userId: string, start: YearMonth, end: YearMonth) {
+    this.assertMonth(start.month);
+    this.assertMonth(end.month);
+
+    if (this.monthIndex(end) < this.monthIndex(start)) {
+      throw new BadRequestException('End period cannot be before start period');
+    }
+
+    const totals = await this.getMonthTotals(userId, start, end);
+    const combined = this.sumTotals(totals.values());
+
+    return {
+      startYear: start.year,
+      startMonth: start.month,
+      endYear: end.year,
+      endMonth: end.month,
+      monthsIncluded: this.monthIndex(end) - this.monthIndex(start) + 1,
+      ...this.toPeriodSummary(combined),
+    };
+  }
+
+  /**
+   * Everything the monthly dashboard renders, in one request: the selected
+   * month, the year(s) its six-month trend spans, the category breakdown and
+   * the account balance. The independent queries run concurrently.
+   */
+  async getDashboardOverview(userId: string, year: number, month: number) {
+    this.assertMonth(month);
+    // The trend covers the six months ending at the selected one, which
+    // reaches into the previous year for January–May.
+    const includesPreviousYear = month < 6;
+    const firstYear = includesPreviousYear ? year - 1 : year;
+
+    const [totals, categoryBreakdown, account] = await Promise.all([
+      this.getMonthTotals(
+        userId,
+        { year: firstYear, month: 1 },
+        { year, month: 12 },
+      ),
+      this.getCategoryBreakdown(userId, year, month),
+      this.accountService.getAccountSummary(userId),
+    ]);
 
     return {
       year,
-      ...summary,
-      monthlyBreakdown,
+      month,
+      monthly: this.toMonthlySummary(
+        { year, month },
+        totals.get(this.periodKey(year, month)),
+      ),
+      yearly: { year, ...this.buildPeriod(totals, year, 1, 12) },
+      previousYearly: includesPreviousYear
+        ? { year: year - 1, ...this.buildPeriod(totals, year - 1, 1, 12) }
+        : null,
+      categoryBreakdown,
+      account,
     };
   }
 
@@ -140,50 +171,112 @@ export class CalculationsService {
     }));
   }
 
-  private async getMonthlyBreakdown(
+  /**
+   * Per-month income/expense/count for every month in [start, end] that has
+   * transactions, in a single grouped query. Months without transactions are
+   * absent from the map.
+   */
+  private async getMonthTotals(
     userId: string,
+    start: YearMonth,
+    end: YearMonth,
+  ): Promise<Map<string, MonthTotals>> {
+    // Row-value comparison keeps the range a single index scan on
+    // (user_id, transaction_year, transaction_month).
+    const rows = await this.db.execute<MonthlyAggregationRow>(sql`
+      SELECT
+        transaction_year as year,
+        transaction_month as month,
+        SUM(CASE WHEN type = 'income' THEN amount_cents ELSE 0 END) as total_income_cents,
+        SUM(CASE WHEN type = 'expense' THEN amount_cents ELSE 0 END) as total_expense_cents,
+        COUNT(*) as transaction_count
+      FROM transactions
+      WHERE user_id = ${userId}
+        AND (transaction_year, transaction_month) >= (${start.year}, ${start.month})
+        AND (transaction_year, transaction_month) <= (${end.year}, ${end.month})
+        AND transaction_month BETWEEN 1 AND 12
+        AND deleted_at IS NULL
+      GROUP BY transaction_year, transaction_month
+    `);
+
+    return new Map(
+      rows.map((row) => [
+        this.periodKey(this.toNumber(row.year), this.toNumber(row.month)),
+        {
+          incomeCents: this.toNumber(row.total_income_cents),
+          expenseCents: this.toNumber(row.total_expense_cents),
+          count: this.toNumber(row.transaction_count),
+        },
+      ]),
+    );
+  }
+
+  /** Totals plus a zero-filled month-by-month breakdown for one year's span. */
+  private buildPeriod(
+    totals: Map<string, MonthTotals>,
     year: number,
     startMonth: number,
     endMonth: number,
   ) {
-    const summaries = await Promise.all(
-      Array.from(
-        { length: endMonth - startMonth + 1 },
-        (_value, index) => startMonth + index,
-      ).map((month) => this.getMonthlySummary(userId, year, month)),
+    const months = Array.from(
+      { length: endMonth - startMonth + 1 },
+      (_value, index) => startMonth + index,
+    );
+    const perMonth = months.map(
+      (month) => totals.get(this.periodKey(year, month)) ?? EMPTY_TOTALS,
     );
 
-    return summaries.map(({ month, totalIncome, totalExpense, savings }) => ({
-      month,
-      totalIncome,
-      totalExpense,
-      savings,
-    }));
-  }
-
-  private toSummary(year: number, month: number, row?: AggregationRow) {
     return {
-      year,
-      month,
-      ...this.toPeriodSummary(row),
+      ...this.toPeriodSummary(this.sumTotals(perMonth)),
+      monthlyBreakdown: months.map((month, index) => {
+        const { totalIncome, totalExpense, savings, transactionCount } =
+          this.toPeriodSummary(perMonth[index]);
+        return { month, totalIncome, totalExpense, savings, transactionCount };
+      }),
     };
   }
 
-  private toPeriodSummary(row?: AggregationRow) {
-    const totalIncomeCents = this.toNumber(row?.total_income_cents);
-    const totalExpenseCents = this.toNumber(row?.total_expense_cents);
-    const savingsCents = totalIncomeCents - totalExpenseCents;
+  private toMonthlySummary(period: YearMonth, totals?: MonthTotals) {
+    return {
+      year: period.year,
+      month: period.month,
+      ...this.toPeriodSummary(totals ?? EMPTY_TOTALS),
+    };
+  }
+
+  private toPeriodSummary(totals: MonthTotals) {
+    const savingsCents = totals.incomeCents - totals.expenseCents;
 
     return {
-      totalIncome: this.centsToAmount(totalIncomeCents),
-      totalExpense: this.centsToAmount(totalExpenseCents),
+      totalIncome: this.centsToAmount(totals.incomeCents),
+      totalExpense: this.centsToAmount(totals.expenseCents),
       savings: this.centsToAmount(savingsCents),
       savingsRate:
-        totalIncomeCents > 0
-          ? ((savingsCents / totalIncomeCents) * 100).toFixed(1)
+        totals.incomeCents > 0
+          ? ((savingsCents / totals.incomeCents) * 100).toFixed(1)
           : 0,
-      transactionCount: this.toNumber(row?.transaction_count),
+      transactionCount: totals.count,
     };
+  }
+
+  private sumTotals(items: Iterable<MonthTotals>): MonthTotals {
+    const sum = { ...EMPTY_TOTALS };
+
+    for (const item of items) {
+      sum.incomeCents += item.incomeCents;
+      sum.expenseCents += item.expenseCents;
+      sum.count += item.count;
+    }
+
+    return sum;
+  }
+
+  private periodKey(year: number, month: number) {
+    return `${year}-${month}`;
+  }
+
+  private monthIndex({ year, month }: YearMonth) {
+    return year * 12 + (month - 1);
   }
 
   private centsToAmount(value: number | string | null | undefined) {

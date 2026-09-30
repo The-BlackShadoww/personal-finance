@@ -62,7 +62,7 @@ export default function AccountPage() {
                 <AnimatedNumber
                   value={summary.currentBalanceCents / 100}
                   format={(v) => `${v < 0 ? "-" : ""}${formatDollar(v)}`}
-                  duration={1.4}
+                  duration={0.7}
                   className="num relative mt-5 block text-[48px] font-[360] leading-none tracking-[-0.045em] sm:text-[64px] md:text-[72px]"
                 />
                 <p className="relative mt-4 text-[13px] text-muted">

@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import Redis from 'ioredis';
 import * as Joi from 'joi';
+import { UserCacheModule } from './common/cache/user-cache.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ThrottlerStorageRedisService } from './common/throttler/throttler-storage-redis.service';
@@ -17,6 +18,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { UsersModule } from './modules/users/users.module';
 import { AccountModule } from './modules/account/account.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -63,6 +65,7 @@ import { AccountModule } from './modules/account/account.module';
       },
     }),
     DbModule,
+    UserCacheModule,
     AuthModule,
     CategoriesModule,
     CalculationsModule,
@@ -71,6 +74,7 @@ import { AccountModule } from './modules/account/account.module';
     ReportsModule,
     UsersModule,
     AccountModule,
+    HealthModule,
   ],
   providers: [
     {
