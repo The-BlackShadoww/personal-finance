@@ -14,8 +14,6 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Notice } from "@/components/settings/ui";
 import { authApi } from "@/lib/api/auth";
 import { ApiError, setAccessToken } from "@/lib/api/client";
-import { clearPersistedQueries } from "@/lib/query/persistence";
-
 const loginSchema = z.object({
   email: z.string().trim().email("Enter a valid email address"),
   password: z.string().min(1, "Password is required"),
@@ -68,7 +66,6 @@ function LoginForm({ registered }: LoginFormProps) {
       setAccessToken(response.data.accessToken);
       // Never show a previous account's cached data to the one signing in.
       queryClient.clear();
-      clearPersistedQueries();
       router.push("/dashboard");
     } catch (error) {
       if (error instanceof ApiError && error.statusCode === 401) {

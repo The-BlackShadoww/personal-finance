@@ -12,9 +12,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/lib/api/auth";
 import { clearAccessToken } from "@/lib/api/client";
-import { useProfile } from "@/lib/hooks/useProfile";
-import { clearPersistedQueries } from "@/lib/query/persistence";
-import { prefetchRoute } from "@/lib/query/prefetchRoute";
+import { useProfile } from "@/lib/hooks/useProfile";import { prefetchRoute } from "@/lib/query/prefetchRoute";
 import { cn } from "@/lib/utils/cn";
 
 export const NAVIGATION = [
@@ -67,7 +65,6 @@ export function AppHeader() {
     } finally {
       clearAccessToken();
       queryClient.clear();
-      clearPersistedQueries();
       router.push("/login");
       router.refresh();
     }
