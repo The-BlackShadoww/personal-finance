@@ -18,6 +18,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { UsersModule } from './modules/users/users.module';
 import { AccountModule } from './modules/account/account.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { AccountModule } from './modules/account/account.module';
     ReportsModule,
     UsersModule,
     AccountModule,
+    HealthModule,
   ],
   providers: [
     {

@@ -96,9 +96,10 @@ async function bootstrap() {
     .addTag('Reports', 'Download transaction data as CSV or PDF')
     .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-
+  // Scanning every route to build the document is startup work, so skip it
+  // when the docs are not served (keeps production cold starts shorter).
   if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
     SwaggerModule.setup('api/docs', app, document, {
       swaggerOptions: {
         persistAuthorization: true,
