@@ -23,17 +23,21 @@ export class AccountService {
   }
 
   async getCurrentBalance(userId: string) {
-    const config = await this.getAccountConfig(userId);
+    // Config and transaction totals in one round trip; the scalar subqueries yield NULL when the account is not set up.
     const result = await this.db.execute(sql`
-      SELECT COALESCE(SUM(CASE WHEN type = 'income' THEN amount_cents ELSE 0 END), 0)::integer AS total_income_cents,
-             COALESCE(SUM(CASE WHEN type = 'expense' THEN amount_cents ELSE 0 END), 0)::integer AS total_expense_cents
+      SELECT (SELECT initial_balance_cents FROM account_config WHERE user_id = ${userId}) AS initial_balance_cents,
+             (SELECT low_balance_threshold_cents FROM account_config WHERE user_id = ${userId}) AS low_balance_threshold_cents,
+             COALESCE(SUM(CASE WHEN type = 'income' THEN amount_cents ELSE 0 END), 0)::bigint AS total_income_cents,
+             COALESCE(SUM(CASE WHEN type = 'expense' THEN amount_cents ELSE 0 END), 0)::bigint AS total_expense_cents
       FROM transactions WHERE user_id = ${userId} AND deleted_at IS NULL
     `);
-    const aggregation = result[0] as { total_income_cents: number | string; total_expense_cents: number | string } | undefined;
-    const totalIncomeCents = Number(aggregation?.total_income_cents ?? 0);
-    const totalExpenseCents = Number(aggregation?.total_expense_cents ?? 0);
-    const currentBalanceCents = config.initialBalanceCents + totalIncomeCents - totalExpenseCents;
-    return { currentBalanceCents, initialBalanceCents: config.initialBalanceCents, totalIncomeCents, totalExpenseCents, lowBalanceThresholdCents: config.lowBalanceThresholdCents, isLowBalance: currentBalanceCents < config.lowBalanceThresholdCents };
+    const row = result[0] as { initial_balance_cents: number | null; low_balance_threshold_cents: number | null; total_income_cents: number | string; total_expense_cents: number | string } | undefined;
+    const initialBalanceCents = row?.initial_balance_cents ?? 0;
+    const lowBalanceThresholdCents = row?.low_balance_threshold_cents ?? 500000;
+    const totalIncomeCents = Number(row?.total_income_cents ?? 0);
+    const totalExpenseCents = Number(row?.total_expense_cents ?? 0);
+    const currentBalanceCents = initialBalanceCents + totalIncomeCents - totalExpenseCents;
+    return { currentBalanceCents, initialBalanceCents, totalIncomeCents, totalExpenseCents, lowBalanceThresholdCents, isLowBalance: currentBalanceCents < lowBalanceThresholdCents };
   }
 
   async getAccountSummary(userId: string) {

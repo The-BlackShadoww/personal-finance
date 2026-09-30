@@ -2,7 +2,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { accountApi, type SetupAccountPayload, type UpsertSectorPayload } from '@/lib/api/account';
 export const accountKeys = { all: ['account'] as const, summary: () => [...accountKeys.all, 'summary'] as const };
-const invalidate = (queryClient: ReturnType<typeof useQueryClient>) => queryClient.invalidateQueries({ queryKey: accountKeys.summary() });
+// The dashboard overview embeds the account summary, so it goes stale too.
+const invalidate = (queryClient: ReturnType<typeof useQueryClient>) => Promise.all([queryClient.invalidateQueries({ queryKey: accountKeys.summary() }), queryClient.invalidateQueries({ queryKey: ["calculations", "dashboard"] })]);
 export function useAccountSummary() { return useQuery({ queryKey: accountKeys.summary(), queryFn: accountApi.getSummary, staleTime: 30_000 }); }
 export function useSetupAccount() { const qc = useQueryClient(); return useMutation({ mutationFn: (data: SetupAccountPayload) => accountApi.setup(data), onSuccess: () => invalidate(qc) }); }
 export function useCreateSector() { const qc = useQueryClient(); return useMutation({ mutationFn: (data: UpsertSectorPayload) => accountApi.createSector(data), onSuccess: () => invalidate(qc) }); }

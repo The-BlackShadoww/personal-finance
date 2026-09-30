@@ -19,10 +19,8 @@ import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { buttonClass } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import type { YearlySummary } from "@/lib/api/calculations";
-import { useCategoryBreakdown } from "@/lib/hooks/useCategoryBreakdown";
-import { useMonthlySummary } from "@/lib/hooks/useMonthlySummary";
+import { useDashboardOverview } from "@/lib/hooks/useDashboardOverview";
 import { useProfile } from "@/lib/hooks/useProfile";
-import { useYearlySummary } from "@/lib/hooks/useYearlySummary";
 import { cn } from "@/lib/utils/cn";
 
 type Period = "monthly" | "quarterly" | "yearly";
@@ -77,20 +75,21 @@ function MonthlyView() {
   const year = selectedDate.getFullYear();
   const month = selectedDate.getMonth() + 1;
 
-  const monthly = useMonthlySummary(year, month);
-  const yearly = useYearlySummary(year);
-  const previousYearly = useYearlySummary(year - 1, { enabled: month < 6 });
-  const categories = useCategoryBreakdown(year, month);
+  const overview = useDashboardOverview(year, month);
+  const monthly = overview.data?.monthly;
+  const yearly = overview.data?.yearly;
+  const previousYearly = overview.data?.previousYearly ?? undefined;
+  const categoryBreakdown = overview.data?.categoryBreakdown;
 
   const points = useMemo(
-    () => buildTrailingMonths(selectedDate, 6, yearly.data, previousYearly.data),
-    [previousYearly.data, selectedDate, yearly.data],
+    () => buildTrailingMonths(selectedDate, 6, yearly, previousYearly),
+    [previousYearly, selectedDate, yearly],
   );
   const previousPoint = points[points.length - 2];
 
   const categoryItems = useMemo(
     () =>
-      (categories.data ?? [])
+      (categoryBreakdown ?? [])
         .filter((item) => item.type === "expense" && item.total > 0)
         .sort((a, b) => b.total - a.total)
         .map((item, index) => ({
@@ -100,14 +99,14 @@ function MonthlyView() {
           count: item.count,
           color: item.color ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length],
         })),
-    [categories.data],
+    [categoryBreakdown],
   );
   const topCategories = categoryItems.slice(0, 6);
   const categoryTotal = categoryItems.reduce((sum, item) => sum + item.value, 0);
 
-  const loading = monthly.isLoading || yearly.isLoading;
-  const trendLoading = yearly.isLoading || (month < 6 && previousYearly.isLoading);
-  const savingsRate = Number(monthly.data?.savingsRate ?? 0);
+  const loading = overview.isLoading;
+  const trendLoading = overview.isLoading;
+  const savingsRate = Number(monthly?.savingsRate ?? 0);
   const monthLabel = selectedDate.toLocaleString("en-US", { month: "long", year: "numeric" });
   const hasFlow = points.some((point) => point.values.income || point.values.expense);
 
@@ -116,8 +115,8 @@ function MonthlyView() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[14px] text-muted">
           Showing <span className="text-foreground">{monthLabel}</span>
-          {monthly.data ? (
-            <span className="num"> · {monthly.data.transactionCount} transactions</span>
+          {monthly ? (
+            <span className="num"> · {monthly.transactionCount} transactions</span>
           ) : null}
         </p>
         <PeriodStepper
@@ -131,7 +130,7 @@ function MonthlyView() {
 
       <Stagger className="grid gap-3 lg:grid-cols-12">
         <StaggerItem className="lg:col-span-7">
-          <AccountBalanceWidget className="h-full" />
+          <AccountBalanceWidget className="h-full" summary={overview.data?.account} isLoading={overview.isLoading} />
         </StaggerItem>
         <StaggerItem className="lg:col-span-5">
           <section className="card card-hover flex h-full flex-col p-7 md:p-8">
@@ -140,7 +139,7 @@ function MonthlyView() {
                 <h2 className="text-[15px]">Savings rate</h2>
                 <p className="text-[13px] text-muted">Share of income you kept</p>
               </div>
-              {loading ? null : !(monthly.data?.totalIncome || monthly.data?.totalExpense) ? (
+              {loading ? null : !(monthly?.totalIncome || monthly?.totalExpense) ? (
                 <span className="tag bg-surface-2 text-muted">No activity</span>
               ) : (
                 <span
@@ -161,18 +160,18 @@ function MonthlyView() {
               {loading ? <div className="skeleton h-[148px] w-[240px]" /> : <Gauge value={savingsRate} label={monthLabel} />}
             </div>
             <p className="mt-5 border-t border-line pt-4 text-[13px] text-muted">
-              Kept <span className="num text-foreground">{usd0(monthly.data?.savings ?? 0)}</span> of{" "}
-              <span className="num text-foreground">{usd0(monthly.data?.totalIncome ?? 0)}</span> earned this month.
+              Kept <span className="num text-foreground">{usd0(monthly?.savings ?? 0)}</span> of{" "}
+              <span className="num text-foreground">{usd0(monthly?.totalIncome ?? 0)}</span> earned this month.
             </p>
           </section>
         </StaggerItem>
       </Stagger>
 
       <PeriodSummaryCards
-        totalIncome={monthly.data?.totalIncome ?? 0}
-        totalExpense={monthly.data?.totalExpense ?? 0}
-        savings={monthly.data?.savings ?? 0}
-        savingsRate={String(monthly.data?.savingsRate ?? "0")}
+        totalIncome={monthly?.totalIncome ?? 0}
+        totalExpense={monthly?.totalExpense ?? 0}
+        savings={monthly?.savings ?? 0}
+        savingsRate={String(monthly?.savingsRate ?? "0")}
         isLoading={loading}
         against="last month"
         previous={
@@ -231,7 +230,7 @@ function MonthlyView() {
       <div className="grid gap-3 lg:grid-cols-12">
         <Reveal className="lg:col-span-7">
           <Panel title="Where it went" subtitle={`Expense categories in ${monthLabel}`} className="h-full">
-            {categories.isLoading ? (
+            {overview.isLoading ? (
               <div className="skeleton h-[260px]" />
             ) : topCategories.length ? (
               <div className="grid items-center gap-8 md:grid-cols-[220px_1fr]">

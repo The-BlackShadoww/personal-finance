@@ -6,7 +6,7 @@ import {
 } from "@/lib/api/transactions";
 import { ApiError } from "@/lib/api/client";
 import { useToast } from "@/components/ui/Toast";
-import { accountKeys } from "@/lib/hooks/useAccount";
+import { invalidateFinancialData } from "@/lib/hooks/invalidateFinancialData";
 
 export function useCreateTransaction() {
   const queryClient = useQueryClient();
@@ -16,9 +16,7 @@ export function useCreateTransaction() {
     mutationFn: (payload: TransactionPayload) =>
       transactionsApi.create(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
-      queryClient.invalidateQueries({ queryKey: accountKeys.summary() });
+      void invalidateFinancialData(queryClient);
     },
     onError: (error) => {
       toast.error(getErrorMessage(error));

@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/Toast";
 import { ApiError } from "@/lib/api/client";
 import { transactionsApi } from "@/lib/api/transactions";
-import { accountKeys } from "@/lib/hooks/useAccount";
+import { invalidateFinancialData } from "@/lib/hooks/invalidateFinancialData";
 
 export function useDeleteTransaction() {
   const queryClient = useQueryClient();
@@ -12,9 +12,7 @@ export function useDeleteTransaction() {
   return useMutation({
     mutationFn: (id: string) => transactionsApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
-      queryClient.invalidateQueries({ queryKey: accountKeys.summary() });
+      void invalidateFinancialData(queryClient);
       toast.success("Transaction deleted.");
     },
     onError: (error) => {
