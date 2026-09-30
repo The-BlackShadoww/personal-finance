@@ -1,18 +1,16 @@
 "use client";
 
-import { QueryClient } from "@tanstack/react-query";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import { ApiError } from "@/lib/api/client";
-import {
-  PERSIST_BUSTER,
-  PERSIST_MAX_AGE,
-  createQueryPersister,
-  shouldPersistQuery,
-} from "@/lib/query/persistence";
+
+// A previous release persisted the query cache (financial data) under this
+// localStorage key. Query data is now kept in memory only; delete any copy an
+// earlier visit left behind. Safe to remove once old snapshots have expired.
+const LEGACY_PERSISTED_CACHE_KEY = "pf-query-cache";
 
 type ProvidersProps = {
   children: ReactNode;
@@ -25,9 +23,6 @@ export function Providers({ children }: ProvidersProps) {
         defaultOptions: {
           queries: {
             staleTime: 2 * 60 * 1000,
-            // Must be at least the persistence max age, or restored queries
-            // are garbage-collected before anything uses them.
-            gcTime: PERSIST_MAX_AGE,
             retry: (failureCount, error) => {
               if (
                 error instanceof ApiError &&
@@ -42,22 +37,21 @@ export function Providers({ children }: ProvidersProps) {
         },
       }),
   );
-  const [persister] = useState(createQueryPersister);
+
+  useEffect(() => {
+    try {
+      window.localStorage.removeItem(LEGACY_PERSISTED_CACHE_KEY);
+    } catch {
+      // Storage unavailable (private mode): nothing can have been persisted.
+    }
+  }, []);
 
   return (
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{
-        persister,
-        maxAge: PERSIST_MAX_AGE,
-        buster: PERSIST_BUSTER,
-        dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
-      }}
-    >
+    <QueryClientProvider client={queryClient}>
       <ToastProvider>{children}</ToastProvider>
       {process.env.NODE_ENV === "development" ? (
         <ReactQueryDevtools initialIsOpen={false} />
       ) : null}
-    </PersistQueryClientProvider>
+    </QueryClientProvider>
   );
 }
