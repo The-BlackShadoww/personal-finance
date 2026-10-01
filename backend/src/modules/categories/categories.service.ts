@@ -3,7 +3,7 @@ import { eq, and, isNull, asc } from 'drizzle-orm';
 import { DB_TOKEN } from '../../db/db.constants';
 import type { DrizzleDB } from '../../db/db.constants';
 import { categories } from '../../db/schema/index';
-import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
+import { CategoryType, CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -76,6 +76,7 @@ export class CategoriesService {
         icon: dto.icon ?? 'tag',
         sortOrder: dto.sortOrder ?? 0,
         isDefault: false,
+        ...this.classification(dto.type, dto),
       })
       .returning();
 
@@ -113,12 +114,36 @@ export class CategoriesService {
         ...(dto.color !== undefined && { color: dto.color }),
         ...(dto.icon !== undefined && { icon: dto.icon }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+        ...this.classification(category.type, dto),
         updatedAt: new Date(),
       })
       .where(eq(categories.id, categoryId))
       .returning();
 
     return updated;
+  }
+
+  /**
+   * Essential/fixed/tag describe spending; incomeKind describes income. Only the
+   * fields provided are returned, so updates leave the others untouched.
+   */
+  private classification(type: CategoryType, dto: UpdateCategoryDto) {
+    const expenseFields = dto.essential !== undefined || dto.fixed !== undefined || dto.tag !== undefined;
+
+    if (type === 'income' && expenseFields) {
+      throw new BadRequestException('essential, fixed and tag apply to expense categories only');
+    }
+
+    if (type === 'expense' && dto.incomeKind !== undefined) {
+      throw new BadRequestException('incomeKind applies to income categories only');
+    }
+
+    return {
+      ...(dto.essential !== undefined && { essential: dto.essential }),
+      ...(dto.fixed !== undefined && { fixed: dto.fixed }),
+      ...(dto.tag !== undefined && { tag: dto.tag }),
+      ...(dto.incomeKind !== undefined && { incomeKind: dto.incomeKind }),
+    };
   }
 
   async remove(userId: string, categoryId: string): Promise<{ success: boolean }> {

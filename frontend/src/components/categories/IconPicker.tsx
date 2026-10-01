@@ -9,6 +9,7 @@ import {
   Briefcase,
   Car,
   Coffee,
+  CreditCard,
   DeviceMobile,
   Dog,
   DotsThree,
@@ -45,7 +46,7 @@ export const SUPPORTED_ICONS = [
   'heart', 'more-horizontal', 'tag', 'coffee', 'utensils',
   'book', 'plane', 'gift', 'music', 'dumbbell',
   'baby', 'dog', 'graduation-cap', 'stethoscope', 'wrench',
-  'smartphone', 'tv', 'wifi', 'shield', 'piggy-bank',
+  'smartphone', 'tv', 'wifi', 'shield', 'piggy-bank', 'credit-card',
 ] as const;
 
 export type IconName = typeof SUPPORTED_ICONS[number];
@@ -79,6 +80,7 @@ const ICONS: Record<string, Icon> = {
   tv: Television,
   wifi: WifiHigh,
   shield: Shield,
+  'credit-card': CreditCard,
   'piggy-bank': PiggyBank,
   banknote: Money,
   wallet: Wallet,

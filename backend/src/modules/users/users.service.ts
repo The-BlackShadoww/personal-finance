@@ -10,6 +10,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { UserCacheService } from '../../common/cache/user-cache.service';
 import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
 import { users } from '../../db/schema';
+import { canonicalLocale } from '../../common/money/locale';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
@@ -23,10 +24,14 @@ export class UsersService {
   async updateProfile(
     userId: string,
     dto: UpdateProfileDto,
-  ): Promise<{ id: string; name: string; email: string; avatarUrl: string | null }> {
-
-    if (!dto.name && !dto.avatarUrl && !dto.timezone) {
+  ) {
+    if (!dto.name && !dto.avatarUrl && !dto.timezone && !dto.currency && !dto.locale) {
       throw new BadRequestException('Provide at least one field to update');
+    }
+
+    const locale = dto.locale === undefined ? undefined : canonicalLocale(dto.locale);
+    if (locale === null) {
+      throw new BadRequestException('locale must be a valid BCP 47 language tag');
     }
 
     const [updated] = await this.db
@@ -35,6 +40,8 @@ export class UsersService {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
         ...(dto.timezone !== undefined && { timezone: dto.timezone }),
+        ...(dto.currency !== undefined && { currency: dto.currency }),
+        ...(locale !== undefined && { locale }),
         updatedAt: new Date(),
       })
       .where(and(eq(users.id, userId), isNull(users.deletedAt)))
@@ -43,6 +50,9 @@ export class UsersService {
         name: users.name,
         email: users.email,
         avatarUrl: users.avatarUrl,
+        timezone: users.timezone,
+        currency: users.currency,
+        locale: users.locale,
       });
 
     if (!updated) throw new NotFoundException('User not found');

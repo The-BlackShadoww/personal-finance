@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { accountSummaryQueryOptions } from "@/lib/hooks/useAccount";
+import { accountsQueryOptions } from "@/lib/hooks/useAccounts";
 import { categoriesQueryOptions } from "@/lib/hooks/useCategories";
 import { prefetchDashboardOverview } from "@/lib/hooks/useDashboardOverview";
 import { reportPreviewQueryOptions } from "@/lib/hooks/useReportPreview";
@@ -23,11 +24,13 @@ export function prefetchRoute(queryClient: QueryClient, href: string) {
     case "/dashboard":
       void prefetchDashboardOverview(queryClient, year, month);
       break;
-    case "/account":
+    case "/accounts":
+      void queryClient.prefetchQuery(accountsQueryOptions());
       void queryClient.prefetchQuery(accountSummaryQueryOptions());
       break;
     case "/transactions":
       void queryClient.prefetchQuery(transactionsQueryOptions(TRANSACTIONS_FIRST_PAGE));
+      void queryClient.prefetchQuery(accountsQueryOptions());
       void queryClient.prefetchQuery(categoriesQueryOptions());
       break;
     case "/reports":

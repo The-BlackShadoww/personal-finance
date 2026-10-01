@@ -1,12 +1,10 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PassThrough } from 'stream';
 import { writeToStream } from 'fast-csv';
-import { and, asc, eq, gt, gte, isNull, lt, lte, or } from 'drizzle-orm';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { createElement } from 'react';
 import { format } from 'date-fns';
-import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
-import { categories, transactions } from '../../db/schema';
+import type { MoneyFormat } from '../../common/money/format';
 import { TransactionsService } from '../transactions/transactions.service';
 import FinancialReportDocument, { type ReportData } from './pdf/financial-report.document';
 
@@ -19,14 +17,13 @@ export type PeriodFilters = {
 
 @Injectable()
 export class ReportsService {
-  constructor(
-    @Inject(DB_TOKEN) private readonly db: DrizzleDB,
-    private readonly transactionsService: TransactionsService,
-  ) {}
+  constructor(private readonly transactionsService: TransactionsService) {}
 
-  async generateCsv(userId: string, filters: PeriodFilters) {
+  async generateCsv(userId: string, filters: PeriodFilters, money: MoneyFormat) {
     this.assertPeriodRange(filters);
-    const rows = await this.findTransactions(userId, filters);
+    const rows = await this.transactionsService.getRawTransactionsForReport(
+      userId, filters.startYear, filters.startMonth, filters.endYear, filters.endMonth,
+    );
     const stream = new PassThrough();
 
     writeToStream(
@@ -35,8 +32,12 @@ export class ReportsService {
         Period: format(new Date(transaction.transactionYear, transaction.transactionMonth - 1, 1), 'MMMM yyyy'),
         'Handover Date': format(transaction.date, 'MMM d, yyyy'),
         Type: transaction.type,
-        Category: transaction.category.name,
-        Amount: this.formatAmount(transaction.amountCents),
+        Category: transaction.categoryName ?? '',
+        // For transfers: the source account.
+        Account: transaction.accountName,
+        'To Account': transaction.counterAccountName ?? '',
+        // A plain number keeps the column summable in spreadsheets.
+        [`Amount (${money.currency})`]: (transaction.amountCents / 100).toFixed(2),
         Note: transaction.note ?? '',
       })),
       { headers: true },
@@ -45,7 +46,7 @@ export class ReportsService {
     return stream;
   }
 
-  async generatePdf(userId: string, userName: string, userEmail: string, filters: PeriodFilters): Promise<Buffer> {
+  async generatePdf(userId: string, userName: string, userEmail: string, filters: PeriodFilters, money: MoneyFormat): Promise<Buffer> {
     this.assertPeriodRange(filters);
     const rawTransactions = await this.transactionsService.getRawTransactionsForReport(
       userId, filters.startYear, filters.startMonth, filters.endYear, filters.endMonth,
@@ -61,38 +62,26 @@ export class ReportsService {
         label: this.buildPeriodLabel(filters),
       },
       user: { name: userName, email: userEmail },
+      money: { currency: money.currency, locale: money.locale },
       summary: {
         totalIncomeCents, totalExpenseCents, savingsCents,
         savingsRate: totalIncomeCents > 0 ? ((savingsCents / totalIncomeCents) * 100).toFixed(1) : '0.0',
         transactionCount: rawTransactions.length,
       },
-      transactions: rawTransactions.map((t) => ({
+      transactions: rawTransactions.flatMap((t) => t.type === 'transfer' ? [] : [{
         period: format(new Date(t.transactionYear, t.transactionMonth - 1, 1), 'MMM yyyy'),
         handoverDate: format(t.date, 'MMM d'),
-        type: t.type, categoryName: t.categoryName, amountCents: t.amountCents, note: t.note,
-      })),
+        type: t.type, categoryName: t.categoryName ?? '', accountName: t.accountName, amountCents: t.amountCents, note: t.note,
+      }]),
+      transfers: rawTransactions.flatMap((t) => t.type !== 'transfer' ? [] : [{
+        period: format(new Date(t.transactionYear, t.transactionMonth - 1, 1), 'MMM yyyy'),
+        handoverDate: format(t.date, 'MMM d'),
+        fromAccount: t.accountName, toAccount: t.counterAccountName ?? '', amountCents: t.amountCents, note: t.note,
+      }]),
       generatedAt: format(new Date(), "MMMM d, yyyy 'at' h:mm a"),
     };
 
     return (await renderToBuffer(createElement(FinancialReportDocument, { data: reportData }) as any)) as unknown as Buffer;
-  }
-
-  private findTransactions(userId: string, filters: PeriodFilters) {
-    return this.db.select({
-      type: transactions.type, amountCents: transactions.amountCents, date: transactions.date,
-      transactionMonth: transactions.transactionMonth, transactionYear: transactions.transactionYear,
-      note: transactions.note, category: { name: categories.name },
-    }).from(transactions).innerJoin(categories, eq(transactions.categoryId, categories.id))
-      .where(this.buildWhere(userId, filters))
-      .orderBy(asc(transactions.transactionYear), asc(transactions.transactionMonth), asc(transactions.date));
-  }
-
-  private buildWhere(userId: string, filters: PeriodFilters) {
-    return and(
-      eq(transactions.userId, userId), isNull(transactions.deletedAt), isNull(categories.deletedAt),
-      or(gt(transactions.transactionYear, filters.startYear), and(eq(transactions.transactionYear, filters.startYear), gte(transactions.transactionMonth, filters.startMonth))),
-      or(lt(transactions.transactionYear, filters.endYear), and(eq(transactions.transactionYear, filters.endYear), lte(transactions.transactionMonth, filters.endMonth))),
-    );
   }
 
   private assertPeriodRange({ startYear, startMonth, endYear, endMonth }: PeriodFilters) {
@@ -109,5 +98,4 @@ export class ReportsService {
     return `${format(start, 'MMMM yyyy')} – ${format(end, 'MMMM yyyy')}`;
   }
 
-  private formatAmount(amountCents: number) { return `$${(amountCents / 100).toFixed(2)}`; }
 }

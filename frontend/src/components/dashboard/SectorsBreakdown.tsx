@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useState } from "react";
 import type { AccountSummary } from "@/lib/api/account";
 import { cn } from "@/lib/utils/cn";
-import { formatDollar } from "@/lib/utils/format";
+import { formatMoneyAbs } from "@/lib/utils/money";
 
 export function SectorsBreakdown({ summary }: { summary: AccountSummary }) {
   const reduceMotion = useReducedMotion();
@@ -53,7 +53,7 @@ export function SectorsBreakdown({ summary }: { summary: AccountSummary }) {
                 <span className="truncate">{s.name}</span>
                 <span className="num text-muted">{s.percentage}%</span>
               </span>
-              <span className="num text-foreground">{formatDollar(s.allocatedCents / 100)}</span>
+              <span className="num text-foreground">{formatMoneyAbs(s.allocatedCents / 100)}</span>
             </div>
             {s.targetAmountCents !== null ? (
               <div className="mt-2 flex items-center gap-3 pl-[18px]">
@@ -67,7 +67,7 @@ export function SectorsBreakdown({ summary }: { summary: AccountSummary }) {
                   />
                 </div>
                 <span className="num text-[11px] text-muted">
-                  {Math.round(s.progressPercent ?? 0)}% of {formatDollar(s.targetAmountCents / 100)}
+                  {Math.round(s.progressPercent ?? 0)}% of {formatMoneyAbs(s.targetAmountCents / 100)}
                 </span>
               </div>
             ) : null}

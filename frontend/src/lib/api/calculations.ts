@@ -24,7 +24,16 @@ export type DashboardOverview = {
   /** Present when the six-month trend reaches into the previous year. */
   previousYearly: YearlySummary | null;
   categoryBreakdown: CategoryBreakdownItem[];
+  /** The month's transfers into savings, investments and debt, in major units. */
+  surplusAllocation: SurplusAllocation;
   account: AccountSummary;
+};
+
+export type SurplusAllocation = {
+  saved: number;
+  invested: number;
+  debtRepaid: number;
+  total: number;
 };
 
 export type PeriodSummary = {

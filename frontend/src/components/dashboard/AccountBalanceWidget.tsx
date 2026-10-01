@@ -10,7 +10,7 @@ import { AnimatedNumber } from "@/components/motion/Reveal";
 import { buttonClass } from "@/components/ui/Button";
 import type { AccountSummary } from "@/lib/api/account";
 import { cn } from "@/lib/utils/cn";
-import { formatDollar } from "@/lib/utils/format";
+import { formatMoneyAbs } from "@/lib/utils/money";
 
 type AccountBalanceWidgetProps = {
   className?: string;
@@ -85,7 +85,7 @@ export function AccountBalanceWidget({ className, summary, isLoading }: AccountB
 
       <AnimatedNumber
         value={summary.currentBalanceCents / 100}
-        format={(value) => `${value < 0 ? "-" : ""}${formatDollar(value)}`}
+        format={(value) => `${value < 0 ? "-" : ""}${formatMoneyAbs(value)}`}
         duration={0.7}
         className="num relative mt-5 block text-[44px] font-[360] leading-none tracking-[-0.045em] text-foreground sm:text-[56px] md:text-[64px]"
       />
@@ -94,7 +94,7 @@ export function AccountBalanceWidget({ className, summary, isLoading }: AccountB
         <p className="relative mt-3 text-[13px] text-muted">
           {negative
             ? "Your account balance is negative."
-            : `Your balance is below ${formatDollar(summary.lowBalanceThresholdCents / 100)}.`}
+            : `Your balance is below ${formatMoneyAbs(summary.lowBalanceThresholdCents / 100)}.`}
         </p>
       ) : null}
 
@@ -103,13 +103,13 @@ export function AccountBalanceWidget({ className, summary, isLoading }: AccountB
           <span className="grid h-5 w-5 place-items-center rounded-full bg-surface text-income">
             <ArrowDownLeft size={11} weight="bold" />
           </span>
-          In <span className="num text-foreground">{formatDollar(summary.totalIncomeCents / 100)}</span>
+          In <span className="num text-foreground">{formatMoneyAbs(summary.totalIncomeCents / 100)}</span>
         </span>
         <span className="flex items-center gap-2 text-muted">
           <span className="grid h-5 w-5 place-items-center rounded-full bg-surface text-expense">
             <ArrowUpRight size={11} weight="bold" />
           </span>
-          Out <span className="num text-foreground">{formatDollar(summary.totalExpenseCents / 100)}</span>
+          Out <span className="num text-foreground">{formatMoneyAbs(summary.totalExpenseCents / 100)}</span>
         </span>
         <button
           type="button"

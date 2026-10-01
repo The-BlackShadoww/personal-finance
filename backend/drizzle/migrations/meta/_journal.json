@@ -36,6 +36,20 @@
       "when": 1786725996794,
       "tag": "0004_serious_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790805496860,
+      "tag": "0005_phase0_foundations",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790830850133,
+      "tag": "0006_phase1_accounts_transfers",
+      "breakpoints": true
     }
   ]
 }

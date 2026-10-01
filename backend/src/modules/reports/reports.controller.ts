@@ -28,7 +28,7 @@ export class ReportsController {
     const period = this.parsePeriod(startYear, startMonth, endYear, endMonth);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=transactions.csv');
-    (await this.reportsService.generateCsv(user.id, period)).pipe(res);
+    (await this.reportsService.generateCsv(user.id, period, user)).pipe(res);
   }
 
   @ApiOperation({ summary: 'Download financial report as PDF', description: 'Generates a formatted PDF for the selected billing-period range.' })
@@ -44,7 +44,7 @@ export class ReportsController {
   @Throttle({ default: { limit: 5, ttl: 3600000 } })
   async downloadPdf(@Query('startYear') startYear: string, @Query('startMonth') startMonth: string, @Query('endYear') endYear: string, @Query('endMonth') endMonth: string, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
     const period = this.parsePeriod(startYear, startMonth, endYear, endMonth);
-    const buffer = await this.reportsService.generatePdf(user.id, user.name, user.email, period);
+    const buffer = await this.reportsService.generatePdf(user.id, user.name, user.email, period, user);
     const filename = `report_${period.startYear}-${String(period.startMonth).padStart(2, '0')}_to_${period.endYear}-${String(period.endMonth).padStart(2, '0')}.pdf`;
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"`, 'Content-Length': buffer.length });
     res.end(buffer);

@@ -4,28 +4,73 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, count, desc, eq, gt, gte, isNull, lt, lte, or } from 'drizzle-orm';
-import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
-import { categories, transactions } from '../../db/schema';
+import { alias } from 'drizzle-orm/pg-core';
 import {
-  CreateTransactionDto,
-  TransactionType,
-} from './dto/create-transaction.dto';
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  gte,
+  isNull,
+  lt,
+  lte,
+  or,
+} from 'drizzle-orm';
+import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
+import { accounts, categories, transactions } from '../../db/schema';
+import { AccountService } from '../account/account.service';
+import { AccountsService } from '../accounts/accounts.service';
+import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { TransactionFiltersDto } from './dto/transaction-filters.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
-import { AccountService } from '../account/account.service';
+
+const counterAccounts = alias(accounts, 'counter_account');
+
+/** The fields that decide what a transaction is and where its money moves. */
+type TransactionShape = {
+  type: 'income' | 'expense' | 'transfer';
+  accountId: string;
+  counterAccountId: string | null;
+  categoryId: string | null;
+};
 
 @Injectable()
 export class TransactionsService {
   constructor(
     @Inject(DB_TOKEN) private readonly db: DrizzleDB,
     private readonly accountService: AccountService,
+    private readonly accountsService: AccountsService,
   ) {}
 
-  async getProjectedBalance(userId: string, amountCents: number, type: 'income' | 'expense') {
-    const balance = await this.accountService.getCurrentBalance(userId);
-    const projectedBalanceCents = balance.currentBalanceCents + (type === 'income' ? amountCents : -amountCents);
-    return { projectedBalanceCents, isLowBalance: projectedBalanceCents < balance.lowBalanceThresholdCents };
+  /**
+   * Liquid balance after a prospective entry. Only entries that move money
+   * in or out of liquid accounts change it.
+   */
+  async getProjectedBalance(
+    userId: string,
+    amountCents: number,
+    type: 'income' | 'expense',
+    accountId?: string,
+  ) {
+    const [balance, account] = await Promise.all([
+      this.accountService.getCurrentBalance(userId),
+      accountId
+        ? this.accountsService.findOwned(userId, accountId)
+        : this.accountsService.getDefaultAccount(userId),
+    ]);
+    const affectsLiquid = account.isLiquid && account.nature === 'asset';
+    const delta = affectsLiquid
+      ? type === 'income'
+        ? amountCents
+        : -amountCents
+      : 0;
+    const projectedBalanceCents = balance.currentBalanceCents + delta;
+    return {
+      projectedBalanceCents,
+      isLowBalance: projectedBalanceCents < balance.lowBalanceThresholdCents,
+    };
   }
 
   async findAll(userId: string, filters: TransactionFiltersDto) {
@@ -35,38 +80,9 @@ export class TransactionsService {
     const where = this.buildTransactionWhere(userId, filters);
 
     const [data, totalRows] = await Promise.all([
-      this.db
-        .select({
-          id: transactions.id,
-          userId: transactions.userId,
-          categoryId: transactions.categoryId,
-          type: transactions.type,
-          amountCents: transactions.amountCents,
-          date: transactions.date,
-          transactionMonth: transactions.transactionMonth,
-          transactionYear: transactions.transactionYear,
-          note: transactions.note,
-          createdAt: transactions.createdAt,
-          updatedAt: transactions.updatedAt,
-          deletedAt: transactions.deletedAt,
-          category: {
-            id: categories.id,
-            userId: categories.userId,
-            name: categories.name,
-            type: categories.type,
-            color: categories.color,
-            icon: categories.icon,
-            isDefault: categories.isDefault,
-            sortOrder: categories.sortOrder,
-            createdAt: categories.createdAt,
-            updatedAt: categories.updatedAt,
-            deletedAt: categories.deletedAt,
-          },
-        })
-        .from(transactions)
-        .innerJoin(categories, eq(transactions.categoryId, categories.id))
+      this.selectWithRelations()
         .where(where)
-        .orderBy(desc(transactions.date))
+        .orderBy(desc(transactions.date), desc(transactions.createdAt))
         .limit(limit)
         .offset(offset),
       this.db.select({ total: count() }).from(transactions).where(where),
@@ -81,10 +97,7 @@ export class TransactionsService {
   }
 
   async findOne(userId: string, transactionId: string) {
-    const transaction = await this.findOwnedTransactionWithCategory(
-      userId,
-      transactionId,
-    );
+    const transaction = await this.findOwnedTransaction(userId, transactionId);
 
     if (!transaction) {
       throw new NotFoundException('Transaction not found');
@@ -94,19 +107,24 @@ export class TransactionsService {
   }
 
   async create(userId: string, dto: CreateTransactionDto) {
-    const category = await this.findOwnedCategory(userId, dto.categoryId);
+    const accountId =
+      dto.accountId ??
+      (await this.accountsService.getDefaultAccount(userId)).id;
 
-    if (!category) {
-      throw new NotFoundException('Category not found');
-    }
-
-    this.assertTypeMatchesCategory(dto.type, category.type);
+    await this.assertValidShape(userId, {
+      type: dto.type,
+      accountId,
+      counterAccountId: dto.counterAccountId ?? null,
+      categoryId: dto.categoryId ?? null,
+    });
 
     const [created] = await this.db
       .insert(transactions)
       .values({
         userId,
-        categoryId: dto.categoryId,
+        accountId,
+        counterAccountId: dto.counterAccountId ?? null,
+        categoryId: dto.categoryId ?? null,
         type: dto.type,
         amountCents: Math.round(dto.amount * 100),
         date: new Date(dto.date),
@@ -114,11 +132,9 @@ export class TransactionsService {
         transactionYear: dto.transactionYear,
         note: dto.note,
       })
-      .returning();
+      .returning({ id: transactions.id });
 
-    // The category was loaded for validation above, so the response can be
-    // assembled without reading the row back.
-    return { ...created, category };
+    return this.findOne(userId, created.id);
   }
 
   async update(
@@ -126,66 +142,44 @@ export class TransactionsService {
     transactionId: string,
     dto: UpdateTransactionDto,
   ) {
-    const existing = await this.findOwnedTransactionWithCategory(
-      userId,
-      transactionId,
-    );
+    const existing = await this.findOne(userId, transactionId);
+    const type: TransactionShape['type'] = dto.type ?? existing.type;
+    const typeChanged = type !== existing.type;
+    const isTransfer = type === 'transfer';
 
-    if (!existing) {
-      throw new NotFoundException('Transaction not found');
-    }
+    // Fields that do not apply to the new type are cleared; fields that
+    // still apply carry over unless the type family changed.
+    const shape: TransactionShape = {
+      type,
+      accountId: dto.accountId ?? existing.accountId,
+      counterAccountId: isTransfer
+        ? (dto.counterAccountId ?? existing.counterAccountId)
+        : (dto.counterAccountId ?? null),
+      categoryId: isTransfer
+        ? (dto.categoryId ?? null)
+        : (dto.categoryId ?? (typeChanged ? null : existing.categoryId)),
+    };
 
-    let category = existing.category;
-    if (dto.categoryId && dto.categoryId !== existing.categoryId) {
-      const newCategory = await this.findOwnedCategory(userId, dto.categoryId);
-
-      if (!newCategory) {
-        throw new NotFoundException('Category not found');
-      }
-
-      category = newCategory;
-    }
-
-    const type = dto.type ?? existing.type;
-    this.assertTypeMatchesCategory(type, category.type);
-
-    const updates: Partial<typeof transactions.$inferInsert> = {};
-
-    if (dto.type !== undefined) {
-      updates.type = dto.type;
-    }
-
-    if (dto.amount !== undefined) {
-      updates.amountCents = Math.round(dto.amount * 100);
-    }
-
-    if (dto.date !== undefined) {
-      updates.date = new Date(dto.date);
-    }
-
-    if (dto.transactionMonth !== undefined) {
-      updates.transactionMonth = dto.transactionMonth;
-    }
-
-    if (dto.transactionYear !== undefined) {
-      updates.transactionYear = dto.transactionYear;
-    }
-
-    if (dto.categoryId !== undefined) {
-      updates.categoryId = dto.categoryId;
-    }
-
-    if (dto.note !== undefined) {
-      updates.note = dto.note;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return existing;
-    }
+    await this.assertValidShape(userId, shape, {
+      // Entries may stay on an account archived after they were recorded.
+      unchangedAccountIds: [
+        existing.accountId,
+        existing.counterAccountId,
+      ].filter((id): id is string => id !== null),
+    });
 
     const [updated] = await this.db
       .update(transactions)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({
+        ...shape,
+        amountCents:
+          dto.amount === undefined ? undefined : Math.round(dto.amount * 100),
+        date: dto.date === undefined ? undefined : new Date(dto.date),
+        transactionMonth: dto.transactionMonth,
+        transactionYear: dto.transactionYear,
+        note: dto.note,
+        updatedAt: new Date(),
+      })
       .where(
         and(
           eq(transactions.id, transactionId),
@@ -193,13 +187,13 @@ export class TransactionsService {
           isNull(transactions.deletedAt),
         ),
       )
-      .returning();
+      .returning({ id: transactions.id });
 
     if (!updated) {
       throw new NotFoundException('Transaction not found');
     }
 
-    return { ...updated, category };
+    return this.findOne(userId, transactionId);
   }
 
   async remove(userId: string, transactionId: string) {
@@ -230,54 +224,162 @@ export class TransactionsService {
     startMonth: number,
     endYear: number,
     endMonth: number,
-  ): Promise<
-    Array<{
-      date: Date;
-      transactionMonth: number;
-      transactionYear: number;
-      type: 'income' | 'expense';
-      categoryName: string;
-      amountCents: number;
-      note: string | null;
-    }>
-  > {
-    const rows = await this.db
+  ) {
+    return this.db
       .select({
         date: transactions.date,
         transactionMonth: transactions.transactionMonth,
         transactionYear: transactions.transactionYear,
         type: transactions.type,
         categoryName: categories.name,
+        accountName: accounts.name,
+        counterAccountName: counterAccounts.name,
         amountCents: transactions.amountCents,
         note: transactions.note,
       })
       .from(transactions)
-      .innerJoin(categories, eq(transactions.categoryId, categories.id))
+      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+      .leftJoin(categories, eq(transactions.categoryId, categories.id))
+      .leftJoin(
+        counterAccounts,
+        eq(transactions.counterAccountId, counterAccounts.id),
+      )
       .where(
         and(
           eq(transactions.userId, userId),
           or(
             gt(transactions.transactionYear, startYear),
-            and(eq(transactions.transactionYear, startYear), gte(transactions.transactionMonth, startMonth)),
+            and(
+              eq(transactions.transactionYear, startYear),
+              gte(transactions.transactionMonth, startMonth),
+            ),
           ),
           or(
             lt(transactions.transactionYear, endYear),
-            and(eq(transactions.transactionYear, endYear), lte(transactions.transactionMonth, endMonth)),
+            and(
+              eq(transactions.transactionYear, endYear),
+              lte(transactions.transactionMonth, endMonth),
+            ),
           ),
           isNull(transactions.deletedAt),
         ),
       )
-      .orderBy(asc(transactions.transactionYear), asc(transactions.transactionMonth), asc(transactions.date));
+      .orderBy(
+        asc(transactions.transactionYear),
+        asc(transactions.transactionMonth),
+        asc(transactions.date),
+      );
+  }
 
-    return rows as Array<{
-      date: Date;
-      transactionMonth: number;
-      transactionYear: number;
-      type: 'income' | 'expense';
-      categoryName: string;
-      amountCents: number;
-      note: string | null;
-    }>;
+  /**
+   * Income/expense need a matching category and no destination; transfers
+   * need two different accounts and no category. New or changed accounts
+   * must be active.
+   */
+  private async assertValidShape(
+    userId: string,
+    shape: TransactionShape,
+    { unchangedAccountIds = [] }: { unchangedAccountIds?: string[] } = {},
+  ) {
+    const checkAccount = (accountId: string) =>
+      unchangedAccountIds.includes(accountId)
+        ? this.accountsService.findOwned(userId, accountId)
+        : this.accountsService.findActive(userId, accountId);
+
+    if (shape.type === 'transfer') {
+      if (shape.categoryId) {
+        throw new BadRequestException('Transfers do not have a category');
+      }
+      if (!shape.counterAccountId) {
+        throw new BadRequestException(
+          'Choose the account the money is moving to',
+        );
+      }
+      if (shape.counterAccountId === shape.accountId) {
+        throw new BadRequestException(
+          'A transfer needs two different accounts',
+        );
+      }
+      await Promise.all([
+        checkAccount(shape.accountId),
+        checkAccount(shape.counterAccountId),
+      ]);
+      return;
+    }
+
+    if (shape.counterAccountId) {
+      throw new BadRequestException(
+        'Only transfers have a destination account',
+      );
+    }
+    if (!shape.categoryId) {
+      throw new BadRequestException('Choose a category');
+    }
+
+    const [category] = await Promise.all([
+      this.findOwnedCategory(userId, shape.categoryId),
+      checkAccount(shape.accountId),
+    ]);
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
+    if (category.type !== shape.type) {
+      throw new BadRequestException(
+        'Transaction type must match category type',
+      );
+    }
+  }
+
+  private selectWithRelations() {
+    return this.db
+      .select({
+        id: transactions.id,
+        userId: transactions.userId,
+        accountId: transactions.accountId,
+        counterAccountId: transactions.counterAccountId,
+        categoryId: transactions.categoryId,
+        type: transactions.type,
+        amountCents: transactions.amountCents,
+        date: transactions.date,
+        transactionMonth: transactions.transactionMonth,
+        transactionYear: transactions.transactionYear,
+        note: transactions.note,
+        createdAt: transactions.createdAt,
+        updatedAt: transactions.updatedAt,
+        deletedAt: transactions.deletedAt,
+        // Null for transfers.
+        category: {
+          id: categories.id,
+          name: categories.name,
+          type: categories.type,
+          color: categories.color,
+          icon: categories.icon,
+        },
+        account: {
+          id: accounts.id,
+          name: accounts.name,
+          kind: accounts.kind,
+          nature: accounts.nature,
+          color: accounts.color,
+          icon: accounts.icon,
+        },
+        // Null unless a transfer.
+        counterAccount: {
+          id: counterAccounts.id,
+          name: counterAccounts.name,
+          kind: counterAccounts.kind,
+          nature: counterAccounts.nature,
+          color: counterAccounts.color,
+          icon: counterAccounts.icon,
+        },
+      })
+      .from(transactions)
+      .innerJoin(accounts, eq(transactions.accountId, accounts.id))
+      .leftJoin(categories, eq(transactions.categoryId, categories.id))
+      .leftJoin(
+        counterAccounts,
+        eq(transactions.counterAccountId, counterAccounts.id),
+      );
   }
 
   private buildTransactionWhere(
@@ -313,43 +415,20 @@ export class TransactionsService {
       clauses.push(eq(transactions.categoryId, filters.categoryId));
     }
 
+    if (filters.accountId) {
+      clauses.push(
+        or(
+          eq(transactions.accountId, filters.accountId),
+          eq(transactions.counterAccountId, filters.accountId),
+        )!,
+      );
+    }
+
     return and(...clauses);
   }
 
-  private async findOwnedTransactionWithCategory(
-    userId: string,
-    transactionId: string,
-  ) {
-    const [transaction] = await this.db
-      .select({
-        id: transactions.id,
-        userId: transactions.userId,
-        categoryId: transactions.categoryId,
-        type: transactions.type,
-        amountCents: transactions.amountCents,
-        date: transactions.date,
-        transactionMonth: transactions.transactionMonth,
-        transactionYear: transactions.transactionYear,
-        note: transactions.note,
-        createdAt: transactions.createdAt,
-        updatedAt: transactions.updatedAt,
-        deletedAt: transactions.deletedAt,
-        category: {
-          id: categories.id,
-          userId: categories.userId,
-          name: categories.name,
-          type: categories.type,
-          color: categories.color,
-          icon: categories.icon,
-          isDefault: categories.isDefault,
-          sortOrder: categories.sortOrder,
-          createdAt: categories.createdAt,
-          updatedAt: categories.updatedAt,
-          deletedAt: categories.deletedAt,
-        },
-      })
-      .from(transactions)
-      .innerJoin(categories, eq(transactions.categoryId, categories.id))
+  private async findOwnedTransaction(userId: string, transactionId: string) {
+    const [transaction] = await this.selectWithRelations()
       .where(
         and(
           eq(transactions.id, transactionId),
@@ -376,16 +455,5 @@ export class TransactionsService {
       .limit(1);
 
     return category;
-  }
-
-  private assertTypeMatchesCategory(
-    transactionType: TransactionType | 'income' | 'expense',
-    categoryType: TransactionType | 'income' | 'expense',
-  ) {
-    if (transactionType !== categoryType) {
-      throw new BadRequestException(
-        'Transaction type must match category type',
-      );
-    }
   }
 }

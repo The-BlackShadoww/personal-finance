@@ -11,6 +11,7 @@ import { useTheme, type Theme } from '@/lib/hooks/useTheme';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { cn } from '@/lib/utils/cn';
+import { CurrencySection } from './CurrencySection';
 import { FieldError, Notice, SectionTitle } from './ui';
 
 // A curated list of common IANA timezones grouped by region keeps the
@@ -118,6 +119,8 @@ export function PreferencesTab() {
   return (
     <div className="max-w-xl space-y-12">
       <AppearancePicker />
+
+      <CurrencySection />
 
       <section className="border-t border-line pt-10">
         <SectionTitle

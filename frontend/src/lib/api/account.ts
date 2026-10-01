@@ -3,7 +3,7 @@ import { apiClient } from './client';
 
 export interface SectorAllocation { id: string; name: string; percentage: number; color: string; icon: string; allocatedCents: number; targetAmountCents: number | null; progressPercent: number | null; sortOrder: number; isDefault: boolean; }
 export interface CashAllocation { name: 'Cash'; percentage: number; allocatedCents: number; color: string; icon: string; }
-export interface AccountSummary { currentBalanceCents: number; currentBalanceDollars: number; initialBalanceCents: number; totalIncomeCents: number; totalExpenseCents: number; lowBalanceThresholdCents: number; isLowBalance: boolean; sectors: SectorAllocation[]; cash: CashAllocation; }
+export interface AccountSummary { currentBalanceCents: number; currentBalanceDollars: number; initialBalanceCents: number; totalIncomeCents: number; totalExpenseCents: number; lowBalanceThresholdCents: number; isLowBalance: boolean; netWorthCents: number; assetsCents: number; liabilitiesCents: number; sectors: SectorAllocation[]; cash: CashAllocation; }
 export interface SetupAccountPayload { initialBalance: number; lowBalanceThreshold?: number; }
 export interface UpsertSectorPayload { name: string; percentage: number; color?: string; icon?: string; targetAmount?: number; sortOrder?: number; }
 

@@ -1,4 +1,5 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
+import { formatMoney, type MoneyFormat } from '../../../common/money/format';
 
 export interface ReportData {
   period: {
@@ -22,10 +23,21 @@ export interface ReportData {
     handoverDate: string;
     type: 'income' | 'expense';
     categoryName: string;
+    accountName: string;
+    amountCents: number;
+    note: string | null;
+  }>;
+  /** Money moved between the user's own accounts; not income or spending. */
+  transfers: Array<{
+    period: string;
+    handoverDate: string;
+    fromAccount: string;
+    toAccount: string;
     amountCents: number;
     note: string | null;
   }>;
   generatedAt: string;
+  money: MoneyFormat;
 }
 
 const styles = StyleSheet.create({
@@ -104,14 +116,19 @@ const styles = StyleSheet.create({
     width: '20%',
   },
   colNote: {
-    width: '33%',
+    width: '25%',
     color: '#6b7280',
   },
   colType: {
     width: '10%',
   },
+  colRoute: {
+    width: '45%',
+    paddingRight: 8,
+  },
   colAmount: {
-    width: '11%',
+    // Wide enough for code-prefixed amounts such as "-BDT 12,34,567.00".
+    width: '19%',
     textAlign: 'right',
   },
   incomeText: {
@@ -131,15 +148,6 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
   },
 });
-
-function formatCents(cents: number): string {
-  const dollars = Math.abs(cents) / 100;
-  const formatted = dollars.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return `$${formatted}`;
-}
 
 export default function FinancialReportDocument({
   data,
@@ -165,14 +173,18 @@ export default function FinancialReportDocument({
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Total Income</Text>
             <Text style={[styles.summaryValue, styles.incomeText]}>
-              {formatCents(data.summary.totalIncomeCents)}
+              {formatMoney(data.summary.totalIncomeCents, data.money, {
+                forPdf: true,
+              })}
             </Text>
           </View>
           {/* Card 2: Total Expenses */}
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Total Expenses</Text>
             <Text style={[styles.summaryValue, styles.expenseText]}>
-              {formatCents(data.summary.totalExpenseCents)}
+              {formatMoney(data.summary.totalExpenseCents, data.money, {
+                forPdf: true,
+              })}
             </Text>
           </View>
           {/* Card 3: Net Savings */}
@@ -186,15 +198,15 @@ export default function FinancialReportDocument({
                   : styles.expenseText,
               ]}
             >
-              {formatCents(data.summary.savingsCents)}
+              {formatMoney(data.summary.savingsCents, data.money, {
+                forPdf: true,
+              })}
             </Text>
           </View>
           {/* Card 4: Savings Rate */}
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Savings Rate</Text>
-            <Text style={styles.summaryValue}>
-              {data.summary.savingsRate}%
-            </Text>
+            <Text style={styles.summaryValue}>{data.summary.savingsRate}%</Text>
           </View>
         </View>
         <Text style={{ fontSize: 9, color: '#6b7280', marginBottom: 4 }}>
@@ -209,7 +221,7 @@ export default function FinancialReportDocument({
           <Text style={styles.colPeriod}>Period</Text>
           <Text style={styles.colHandover}>Handover</Text>
           <Text style={styles.colCategory}>Category</Text>
-          <Text style={styles.colNote}>Note</Text>
+          <Text style={styles.colNote}>Account · Note</Text>
           <Text style={styles.colType}>Type</Text>
           <Text style={styles.colAmount}>Amount</Text>
         </View>
@@ -218,15 +230,14 @@ export default function FinancialReportDocument({
         {data.transactions.map((tx, index) => (
           <View
             key={index}
-            style={[
-              styles.tableRow,
-              index % 2 === 1 ? styles.tableRowAlt : {},
-            ]}
+            style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : {}]}
           >
             <Text style={styles.colPeriod}>{tx.period}</Text>
             <Text style={styles.colHandover}>{tx.handoverDate}</Text>
             <Text style={styles.colCategory}>{tx.categoryName}</Text>
-            <Text style={styles.colNote}>{tx.note ?? '—'}</Text>
+            <Text style={styles.colNote}>
+              {[tx.accountName, tx.note].filter(Boolean).join(' · ')}
+            </Text>
             <Text
               style={[
                 styles.colType,
@@ -241,11 +252,57 @@ export default function FinancialReportDocument({
                 tx.type === 'income' ? styles.incomeText : styles.expenseText,
               ]}
             >
-              {tx.type === 'expense' ? '-' : ''}
-              {formatCents(tx.amountCents)}
+              {formatMoney(
+                tx.type === 'expense' ? -tx.amountCents : tx.amountCents,
+                data.money,
+                { forPdf: true },
+              )}
             </Text>
           </View>
         ))}
+
+        {data.transfers.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>Transfers</Text>
+            <Text style={{ fontSize: 9, color: '#6b7280', marginBottom: 6 }}>
+              Money moved between your own accounts — savings, investments and
+              debt payments. Not counted as income or spending.
+            </Text>
+            <View style={styles.tableHeader}>
+              <Text style={styles.colPeriod}>Period</Text>
+              <Text style={styles.colHandover}>Handover</Text>
+              <Text style={styles.colRoute}>From – To · Note</Text>
+              <Text style={styles.colType}>Type</Text>
+              <Text style={styles.colAmount}>Amount</Text>
+            </View>
+            {data.transfers.map((transfer, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.tableRow,
+                  index % 2 === 1 ? styles.tableRowAlt : {},
+                ]}
+              >
+                <Text style={styles.colPeriod}>{transfer.period}</Text>
+                <Text style={styles.colHandover}>{transfer.handoverDate}</Text>
+                <Text style={styles.colRoute}>
+                  {[
+                    `${transfer.fromAccount} to ${transfer.toAccount}`,
+                    transfer.note,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+                <Text style={styles.colType}>Transfer</Text>
+                <Text style={styles.colAmount}>
+                  {formatMoney(transfer.amountCents, data.money, {
+                    forPdf: true,
+                  })}
+                </Text>
+              </View>
+            ))}
+          </>
+        ) : null}
 
         {/* FOOTER — appears on every page */}
         <View style={styles.footer} fixed>

@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { PageHeader } from "@/components/layouts/PageHeader";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { Button } from "@/components/ui/Button";
+import { formatMoney } from "@/lib/utils/money";
 
 const PREVIEW = [
   { name: "Housing", planned: 1400, spent: 1400, color: "var(--ds-series-net)" },
@@ -43,11 +44,11 @@ export default function BudgetsPage() {
               <div className="mt-10 grid grid-cols-2 gap-6 border-t border-line-strong/70 pt-6">
                 <div>
                   <p className="text-[13px] text-muted">Planned</p>
-                  <p className="num mt-1 text-[26px] tracking-[-0.02em]">$0.00</p>
+                  <p className="num mt-1 text-[26px] tracking-[-0.02em]">{formatMoney(0)}</p>
                 </div>
                 <div>
                   <p className="text-[13px] text-muted">Remaining</p>
-                  <p className="num mt-1 text-[26px] tracking-[-0.02em]">$0.00</p>
+                  <p className="num mt-1 text-[26px] tracking-[-0.02em]">{formatMoney(0)}</p>
                 </div>
               </div>
             </div>
@@ -67,7 +68,7 @@ export default function BudgetsPage() {
                         {item.name}
                       </span>
                       <span className="num text-muted">
-                        ${item.spent} <span className="text-faint">/ ${item.planned}</span>
+                        {formatMoney(item.spent, 0)} <span className="text-faint">/ {formatMoney(item.planned, 0)}</span>
                       </span>
                     </div>
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">

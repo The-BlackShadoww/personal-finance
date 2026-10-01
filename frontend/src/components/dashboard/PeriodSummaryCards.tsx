@@ -1,7 +1,8 @@
 "use client";
 
 import { Stagger, StaggerItem } from "@/components/motion/Reveal";
-import { StatTile, pct, usd, type Delta } from "@/components/dashboard/primitives";
+import { StatTile, pct, type Delta } from "@/components/dashboard/primitives";
+import { formatMoney } from "@/lib/utils/money";
 
 interface PeriodSummaryCardsProps {
   totalIncome: number;
@@ -33,25 +34,25 @@ export function PeriodSummaryCards({
     {
       label: "Income",
       value: totalIncome,
-      format: usd,
+      format: formatMoney,
       dot: "var(--ds-series-income)",
-      delta: delta(totalIncome - (previous?.totalIncome ?? 0), true, usd),
+      delta: delta(totalIncome - (previous?.totalIncome ?? 0), true, formatMoney),
       trend: trends?.income,
     },
     {
       label: "Expenses",
       value: totalExpense,
-      format: usd,
+      format: formatMoney,
       dot: "var(--ds-series-expense)",
-      delta: delta(totalExpense - (previous?.totalExpense ?? 0), false, usd),
+      delta: delta(totalExpense - (previous?.totalExpense ?? 0), false, formatMoney),
       trend: trends?.expense,
     },
     {
       label: "Net savings",
       value: savings,
-      format: (v: number) => `${v < 0 ? "-" : ""}${usd(Math.abs(v))}`,
+      format: formatMoney,
       dot: "var(--ds-series-net)",
-      delta: delta(savings - (previous?.savings ?? 0), true, usd),
+      delta: delta(savings - (previous?.savings ?? 0), true, formatMoney),
       trend: trends?.savings,
     },
     {

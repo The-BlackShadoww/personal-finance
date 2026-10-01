@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
+import { formatCompactMoney, formatMoney } from "@/lib/utils/money";
 
 export type Series = {
   key: string;
@@ -102,24 +103,11 @@ export function smoothPath(input: Array<[number, number]>) {
 }
 
 export function compactMoney(value: number) {
-  const abs = Math.abs(value);
-  const sign = value < 0 ? "-" : "";
-  if (abs >= 1_000_000) return `${sign}$${trim(abs / 1_000_000)}M`;
-  if (abs >= 1_000) return `${sign}$${trim(abs / 1_000)}k`;
-  return `${sign}$${Math.round(abs)}`;
+  return formatCompactMoney(value);
 }
 
-function trim(value: number) {
-  return value >= 10 ? Math.round(value).toString() : value.toFixed(1).replace(/\.0$/, "");
-}
-
-export function money(value: number, fractionDigits = 0) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  }).format(value);
+export function money(value: number, fractionDigits: 0 | 2 = 0) {
+  return formatMoney(value, fractionDigits);
 }
 
 /* ------------------------------------------------------------------ */

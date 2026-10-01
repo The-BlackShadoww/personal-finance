@@ -15,18 +15,21 @@ A modern, full-stack personal finance application for tracking income and expens
 - Password change, profile management, and route protection via Next.js middleware
 
 **Financial data**
-- **Transactions** — Create, read, update, and delete income/expense entries with dates, notes, and categories
-- **Categories** — Custom income and expense categories with colors and icons (managed in Settings)
+- **Transactions** — Create, read, update, and delete income, expense and transfer entries with dates, notes, categories and accounts. Transfers move money between your own accounts (into savings, investments or onto a card) and never count as income or spending
+- **Categories** — Custom income and expense categories with colors and icons (managed in Settings). Expense categories are marked need/want and fixed/variable and can count toward ratios such as housing or debt interest; income categories are marked active, passive or portfolio
 - **Budgets** — Monthly budget limits per category (API ready; UI page is a placeholder)
-- **Account setup** — Initial balance, low-balance threshold, and savings-sector allocations
-- **Calculations** — Monthly, quarterly, and yearly summaries plus category breakdowns for the dashboard
-- **Reports** — CSV and PDF export for any date range, with preview and local download history
+- **Accounts** — Bank, cash, mobile wallet, savings, investment, retirement and property assets plus credit cards and loans, with balances, a six-month trend, net worth and money available to spend. Archive (zero balance) or delete (unused) accounts
+- **Account setup** — Default-account opening balance, low-balance threshold, and savings-sector allocations
+- **Calculations** — Monthly, quarterly, and yearly summaries, category breakdowns, and where each month's surplus went (savings, investments, debt) for the dashboard
+- **Reports** — CSV and PDF export for any date range in the user's currency, with preview and local download history
+- **Currency & number format** — Any ISO 4217 currency and a choice of number grouping (including lakh/crore); money is stored as 64-bit minor units
+- **Financial profile** — Income stability (with a suggestion from recent income), dependents, insurance and employer match, plus retirement assumptions, used to tailor targets and advice
 
 **Frontend**
 - **Dashboard** — Monthly, quarterly, and yearly views with Recharts visualizations
 - **Transactions** — Paginated ledger with filters and modal create/edit forms
 - **Reports** — Date-range picker, format selection, and one-click downloads
-- **Settings** — Profile, security (2FA), preferences, categories, and account configuration
+- **Settings** — Profile, security (2FA), preferences (appearance, currency, timezone), financial profile, categories, and account configuration
 - **Landing page** — Marketing home page with links to auth flows
 
 **Platform**
@@ -39,6 +42,7 @@ A modern, full-stack personal finance application for tracking income and expens
 ### Planned / in progress
 
 - **Budgets UI** — Backend endpoints exist; the `/budgets` page still needs a full interface
+- **Roadmap** — Funded goals, recurring transactions and financial-health insights; see [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)
 - Additional polish, tests, and production hardening
 
 ---

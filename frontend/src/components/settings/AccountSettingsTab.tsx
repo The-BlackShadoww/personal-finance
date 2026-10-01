@@ -15,6 +15,8 @@ import {
   useSetupAccount,
   useUpdateSector,
 } from "@/lib/hooks/useAccount";
+import { useAccounts } from "@/lib/hooks/useAccounts";
+import { currencySymbol } from "@/lib/utils/money";
 import { Notice, SectionTitle } from "./ui";
 
 type SectorValues = {
@@ -45,14 +47,20 @@ export function AccountSettingsTab() {
   const [editing, setEditing] = useState<SectorAllocation | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // The field edits the default account's opening balance, not the sum
+  // across accounts that the summary reports.
+  const { data: accountsData, isLoading: accountsLoading } = useAccounts();
+  const defaultOpeningCents = accountsData?.accounts.find((account) => account.isDefault)?.openingBalanceCents;
+
   useEffect(() => {
-    if (summary) {
-      setInitialBalance(summary.initialBalanceCents / 100);
-      setThreshold(summary.lowBalanceThresholdCents / 100);
-    }
+    if (summary) setThreshold(summary.lowBalanceThresholdCents / 100);
   }, [summary]);
 
-  if (isLoading)
+  useEffect(() => {
+    if (defaultOpeningCents !== undefined) setInitialBalance(defaultOpeningCents / 100);
+  }, [defaultOpeningCents]);
+
+  if (isLoading || accountsLoading)
     return (
       <div className="max-w-2xl space-y-3">
         <div className="skeleton h-24" />
@@ -102,8 +110,8 @@ export function AccountSettingsTab() {
           description="Your running balance is recalculated from this starting balance and every transaction."
         />
         <form onSubmit={saveConfig} className="grid gap-5 sm:grid-cols-2">
-          <NumberInput id="initial-balance" label="Initial balance" prefix="$" value={initialBalance} onChange={setInitialBalance} />
-          <NumberInput id="threshold" label="Low-balance threshold" prefix="$" value={threshold} onChange={setThreshold} />
+          <NumberInput id="initial-balance" label="Default account opening balance" prefix={currencySymbol()} value={initialBalance} onChange={setInitialBalance} />
+          <NumberInput id="threshold" label="Low-balance threshold" prefix={currencySymbol()} value={threshold} onChange={setThreshold} />
           <div className="sm:col-span-2">
             <Button type="submit" disabled={setup.isPending}>
               {setup.isPending ? <Spinner /> : null}
@@ -245,7 +253,7 @@ export function AccountSettingsTab() {
                       Savings goal <span className="text-faint">optional</span>
                     </span>
                     <div className="relative">
-                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] text-muted">$</span>
+                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] text-muted">{currencySymbol()}</span>
                       <input
                         type="number"
                         min="1"

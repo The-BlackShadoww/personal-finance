@@ -58,3 +58,41 @@ export function SectionTitle({ title, description, aside }: { title: string; des
     </div>
   );
 }
+
+/** A compact single-choice question rendered as a radio group of pills. */
+export function ChoiceGroup<T extends string | number | boolean>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T | null;
+  options: Array<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2">
+      {options.map((option) => {
+        const selected = value === option.value;
+        return (
+          <button
+            key={String(option.value)}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "rounded-[8px] border px-3.5 py-2 text-[13px] transition-colors",
+              selected
+                ? "border-foreground bg-foreground text-background"
+                : "border-line-strong text-muted hover:border-foreground/40 hover:text-foreground",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

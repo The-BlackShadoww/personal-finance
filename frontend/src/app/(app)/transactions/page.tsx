@@ -12,10 +12,11 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import type { Transaction, TransactionFilters, TransactionType } from "@/lib/api/transactions";
+import { useAccounts } from "@/lib/hooks/useAccounts";
 import { useDeleteTransaction } from "@/lib/hooks/useDeleteTransaction";
 import { useTransactions } from "@/lib/hooks/useTransactions";
 import { cn } from "@/lib/utils/cn";
-import { formatCurrency } from "@/lib/utils/currency";
+import { formatCents } from "@/lib/utils/money";
 
 const PAGE_SIZE = 10;
 const MONTHS = [
@@ -31,6 +32,7 @@ export default function TransactionsPage() {
   const [filterYear, setFilterYear] = useState<number | undefined>();
   const [type, setType] = useState<"all" | TransactionType>("all");
   const [categoryId, setCategoryId] = useState("");
+  const [accountId, setAccountId] = useState("");
   const [formTransaction, setFormTransaction] = useState<Transaction | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
@@ -46,11 +48,14 @@ export default function TransactionsPage() {
       year: filterYear,
       type: type === "all" ? undefined : type,
       categoryId: categoryId || undefined,
+      accountId: accountId || undefined,
     }),
-    [categoryId, endDate, filterMonth, filterYear, page, startDate, type],
+    [accountId, categoryId, endDate, filterMonth, filterYear, page, startDate, type],
   );
 
   const { data, isLoading, isFetching } = useTransactions(filters);
+  // Archived accounts stay filterable: their history is still in the ledger.
+  const { data: accountsData } = useAccounts(true);
   const deleteTransaction = useDeleteTransaction();
   const transactions = data?.data ?? [];
   const total = data?.total ?? 0;
@@ -58,14 +63,14 @@ export default function TransactionsPage() {
   const canGoPrevious = page > 1;
   const canGoNext = page < totalPages;
 
-  const activeFilterCount = [startDate, endDate, filterMonth, filterYear, type !== "all" ? type : "", categoryId].filter(
+  const activeFilterCount = [startDate, endDate, filterMonth, filterYear, type !== "all" ? type : "", categoryId, accountId].filter(
     Boolean,
   ).length;
 
   const categories = useMemo(() => {
     const uniqueCategories = new Map<string, string>();
     transactions.forEach((transaction) => {
-      uniqueCategories.set(transaction.category.id, transaction.category.name);
+      if (transaction.category) uniqueCategories.set(transaction.category.id, transaction.category.name);
     });
     if (categoryId && !uniqueCategories.has(categoryId)) {
       uniqueCategories.set(categoryId, "Selected category");
@@ -88,6 +93,7 @@ export default function TransactionsPage() {
     setFilterYear(undefined);
     setType("all");
     setCategoryId("");
+    setAccountId("");
     setPage(1);
   }
 
@@ -142,6 +148,7 @@ export default function TransactionsPage() {
                 { value: "all", label: "All" },
                 { value: "income", label: "Income" },
                 { value: "expense", label: "Expenses" },
+                { value: "transfer", label: "Transfers" },
               ]}
             />
             <div className="flex items-center gap-3 text-[13px]">
@@ -167,7 +174,7 @@ export default function TransactionsPage() {
               </button>
             </div>
           </div>
-          <div className="mt-5 grid gap-3 border-t border-line pt-5 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-5 grid gap-3 border-t border-line pt-5 sm:grid-cols-2 lg:grid-cols-6">
             <label>
               <span className="label text-muted">Period month</span>
               <select
@@ -220,7 +227,19 @@ export default function TransactionsPage() {
                 onChange={(event) => resetPage(setEndDate, event.target.value)}
               />
             </label>
-            <label className="sm:col-span-2 lg:col-span-1">
+            <label>
+              <span className="label text-muted">Account</span>
+              <select value={accountId} className="field h-10" onChange={(event) => resetPage(setAccountId, event.target.value)}>
+                <option value="">All accounts</option>
+                {(accountsData?.accounts ?? []).map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                    {account.archivedAt ? " (archived)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
               <span className="label text-muted">Category</span>
               <select value={categoryId} className="field h-10" onChange={(event) => resetPage(setCategoryId, event.target.value)}>
                 <option value="">All categories</option>
@@ -244,10 +263,10 @@ export default function TransactionsPage() {
           {transactions.length ? (
             <p className="num flex items-center gap-4">
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-income" /> Income on this page {formatCurrency(pageIncome)}
+                <span className="h-2 w-2 rounded-full bg-income" /> Income on this page {formatCents(pageIncome)}
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-expense" /> Spent on this page {formatCurrency(pageExpense)}
+                <span className="h-2 w-2 rounded-full bg-expense" /> Spent on this page {formatCents(pageExpense)}
               </span>
             </p>
           ) : null}
@@ -262,7 +281,7 @@ export default function TransactionsPage() {
             <div className="hidden grid-cols-[110px_90px_minmax(160px,1.2fr)_minmax(160px,2fr)_140px_84px] gap-4 border-b border-line px-6 py-3 text-[12px] text-muted md:grid">
               <span title="The month and year this transaction is attributed to">Period</span>
               <span title="Date money was physically received or paid">Date</span>
-              <span>Category</span>
+              <span>Category · Account</span>
               <span>Note</span>
               <span className="text-right">Amount</span>
               <span className="sr-only">Actions</span>
@@ -289,23 +308,37 @@ export default function TransactionsPage() {
                       {new Date(transaction.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </span>
                     <span className="flex min-w-0 items-center gap-3">
-                      <span
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px]"
-                        style={{
-                          backgroundColor: `color-mix(in srgb, ${transaction.category.color ?? "#868685"} 14%, transparent)`,
-                          color: transaction.category.color ?? "#868685",
-                        }}
-                      >
-                        <CategoryIcon name={transaction.category.icon} size={14} />
-                      </span>
+                      {transaction.category ? (
+                        <span
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px]"
+                          style={{
+                            backgroundColor: `color-mix(in srgb, ${transaction.category.color ?? "#868685"} 14%, transparent)`,
+                            color: transaction.category.color ?? "#868685",
+                          }}
+                        >
+                          <CategoryIcon name={transaction.category.icon} size={14} />
+                        </span>
+                      ) : (
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] bg-surface-2 text-muted">
+                          <ArrowsLeftRight size={14} weight="bold" />
+                        </span>
+                      )}
                       <span className="min-w-0">
-                        <span className="block truncate text-[14px] text-foreground">{transaction.category.name}</span>
-                        <span className="num block truncate text-[12px] text-muted md:hidden">
-                          {new Date(transaction.transactionYear, transaction.transactionMonth - 1, 1).toLocaleString("en-US", {
-                            month: "short",
-                            year: "numeric",
-                          })}
-                          {transaction.note ? ` · ${transaction.note}` : ""}
+                        <span className="block truncate text-[14px] text-foreground">
+                          {transaction.category
+                            ? transaction.category.name
+                            : `To ${transaction.counterAccount?.name ?? "another account"}`}
+                        </span>
+                        <span className="num block truncate text-[12px] text-muted">
+                          <span className="md:hidden">
+                            {new Date(transaction.transactionYear, transaction.transactionMonth - 1, 1).toLocaleString("en-US", {
+                              month: "short",
+                              year: "numeric",
+                            })}
+                            {" · "}
+                          </span>
+                          {transaction.category ? transaction.account.name : `Transfer from ${transaction.account.name}`}
+                          <span className="md:hidden">{transaction.note ? ` · ${transaction.note}` : ""}</span>
                         </span>
                       </span>
                     </span>
@@ -314,13 +347,15 @@ export default function TransactionsPage() {
                     </span>
                     <span className="flex flex-col items-end">
                       <span className="num text-[14px] text-foreground">
-                        {transaction.type === "income" ? "+" : "-"}
-                        {formatCurrency(transaction.amountCents)}
+                        {transaction.type === "income" ? "+" : transaction.type === "expense" ? "-" : ""}
+                        {formatCents(transaction.amountCents)}
                       </span>
                       <span
                         className={cn(
                           "tag mt-1 px-1.5 py-0 text-[9px]",
-                          transaction.type === "income" ? "bg-green-bg text-green-fg" : "bg-red-bg text-red-fg",
+                          transaction.type === "income" && "bg-green-bg text-green-fg",
+                          transaction.type === "expense" && "bg-red-bg text-red-fg",
+                          transaction.type === "transfer" && "bg-surface-3 text-muted",
                         )}
                       >
                         {transaction.type}
@@ -376,7 +411,9 @@ export default function TransactionsPage() {
       <Modal
         open={isFormModalOpen}
         title={formTransaction ? "Edit transaction" : "Add transaction"}
-        description={formTransaction ? "Update the details of this entry." : "Record money coming in or going out."}
+        description={
+          formTransaction ? "Update the details of this entry." : "Record money coming in, going out, or moving between your accounts."
+        }
         onClose={closeFormModal}
       >
         <TransactionForm transaction={formTransaction} onCancel={closeFormModal} onSuccess={closeFormModal} />
@@ -393,7 +430,7 @@ export default function TransactionsPage() {
         <p className="text-[14px] leading-relaxed text-muted">
           This will remove the {transactionToDelete?.type} transaction for{" "}
           <span className="num text-foreground">
-            {transactionToDelete ? formatCurrency(transactionToDelete.amountCents) : ""}
+            {transactionToDelete ? formatCents(transactionToDelete.amountCents) : ""}
           </span>
           . This action cannot be undone from the app.
         </p>
@@ -445,7 +482,7 @@ function EmptyState({ onAdd, filtered, onReset }: { onAdd: () => void; filtered:
       <p className="relative mt-1.5 max-w-sm text-[14px] text-muted">
         {filtered
           ? "Widen the period or clear a filter to see more of your activity."
-          : "Add your first income or expense to start building your picture."}
+          : "Add your first income, expense or transfer to start building your picture."}
       </p>
       <div className="relative mt-6 flex gap-2">
         {filtered ? (

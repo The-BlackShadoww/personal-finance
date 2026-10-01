@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsHexColor, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { MAX_AMOUNT } from '../../../common/money/money.constants';
 
 export class UpsertSectorDto {
   @ApiProperty({ example: 'Emergency Fund', minLength: 1, maxLength: 100 })
@@ -19,7 +20,7 @@ export class UpsertSectorDto {
   icon?: string;
 
   @ApiPropertyOptional({ example: 5000, description: 'Optional savings goal in whole dollars.' })
-  @IsOptional() @IsInt() @Min(1)
+  @IsOptional() @IsInt() @Min(1) @Max(MAX_AMOUNT)
   targetAmount?: number;
 
   @ApiPropertyOptional({ example: 0 })

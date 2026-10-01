@@ -5,22 +5,45 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CategoryIcon, IconPicker } from './IconPicker';
 import { ColorPicker, PRESET_COLORS } from './ColorPicker';
-import { Category } from '../../lib/api/categories';
+import { Category, CategoryClassification, CategoryTag, IncomeKind } from '../../lib/api/categories';
+import { ChoiceGroup } from '@/components/settings/ui';
 import { Button } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+
+const TAG_OPTIONS: Array<{ value: CategoryTag | ''; label: string }> = [
+  { value: '', label: 'Nothing specific' },
+  { value: 'housing', label: 'Housing (rent, mortgage)' },
+  { value: 'debt_interest', label: 'Debt interest & fees' },
+  { value: 'insurance', label: 'Insurance premiums' },
+  { value: 'education', label: 'Education' },
+  { value: 'health', label: 'Health' },
+];
+
+const INCOME_KIND_OPTIONS: Array<{ value: IncomeKind; label: string }> = [
+  { value: 'active', label: 'Active — from work' },
+  { value: 'passive', label: 'Passive — rent, royalties' },
+  { value: 'portfolio', label: 'Portfolio — dividends, interest' },
+];
 
 const categorySchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
   type: z.enum(['income', 'expense']),
   color: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, 'Invalid color'),
   icon: z.string().min(1, 'Please select an icon'),
+  essential: z.boolean(),
+  fixed: z.boolean(),
+  tag: z.enum(['housing', 'debt_interest', 'insurance', 'education', 'health']).nullable(),
+  incomeKind: z.enum(['active', 'passive', 'portfolio']).nullable(),
 });
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
 
+export type CategoryFormSubmitValues = Pick<CategoryFormValues, 'name' | 'type' | 'color' | 'icon'> &
+  CategoryClassification;
+
 interface CategoryFormProps {
   initialData?: Category; // provided → edit mode; undefined → create mode
-  onSubmit: (values: CategoryFormValues) => Promise<void>;
+  onSubmit: (values: CategoryFormSubmitValues) => Promise<void>;
   onCancel: () => void;
   isLoading: boolean;
 }
@@ -36,6 +59,10 @@ export function CategoryForm({ initialData, onSubmit, onCancel, isLoading }: Cat
         type: initialData?.type ?? 'expense',
         color: initialData?.color ?? PRESET_COLORS[0],
         icon: initialData?.icon ?? 'tag',
+        essential: initialData?.essential ?? false,
+        fixed: initialData?.fixed ?? false,
+        tag: initialData?.tag ?? null,
+        incomeKind: initialData?.incomeKind ?? null,
       },
     });
 
@@ -43,9 +70,18 @@ export function CategoryForm({ initialData, onSubmit, onCancel, isLoading }: Cat
   const selectedIcon = watch('icon');
   const selectedType = watch('type');
   const name = watch('name');
+  const essential = watch('essential');
+  const tag = watch('tag');
+  const incomeKind = watch('incomeKind');
+
+  // Spending flags and income kind are mutually exclusive; the API rejects
+  // the wrong set for a category's type.
+  function submit({ essential, fixed, tag, incomeKind, ...base }: CategoryFormValues) {
+    return onSubmit(base.type === 'expense' ? { ...base, essential, fixed, tag } : { ...base, incomeKind });
+  }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(submit)} className="space-y-6">
       <div className="grid gap-5 sm:grid-cols-[1fr_auto]">
         <div>
           <label className="label" htmlFor="category-name">Name</label>
@@ -76,6 +112,59 @@ export function CategoryForm({ initialData, onSubmit, onCancel, isLoading }: Cat
           </div>
         </div>
       </div>
+
+      {selectedType === 'expense' ? (
+        <div className="space-y-5 rounded-[10px] border border-line px-4 py-4">
+          <div>
+            <span className="label">Need or want?</span>
+            <ChoiceGroup
+              label="Need or want"
+              value={essential}
+              onChange={(value) => setValue('essential', value)}
+              options={[
+                { value: true, label: 'Need — hard to cut' },
+                { value: false, label: 'Want — optional' },
+              ]}
+            />
+            <p className="mt-1.5 text-[12px] text-muted">Needs size your emergency fund and the 50/30/20 split.</p>
+          </div>
+          <label className="flex items-start gap-2.5 text-[13px] text-foreground">
+            <input type="checkbox" {...register('fixed')} className="mt-0.5 h-4 w-4 accent-[var(--ds-foreground)]" />
+            <span>
+              Roughly the same every month
+              <span className="block text-[12px] text-muted">Rent, subscriptions, loan interest.</span>
+            </span>
+          </label>
+          <div>
+            <label className="label" htmlFor="category-tag">Counts toward</label>
+            <select
+              id="category-tag"
+              className="field"
+              value={tag ?? ''}
+              onChange={(event) => setValue('tag', (event.target.value || null) as CategoryTag | null)}
+            >
+              {TAG_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-[10px] border border-line px-4 py-4">
+          <span className="label">Kind of income</span>
+          <ChoiceGroup
+            label="Kind of income"
+            value={incomeKind}
+            onChange={(value) => setValue('incomeKind', value)}
+            options={INCOME_KIND_OPTIONS}
+          />
+          <p className="mt-1.5 text-[12px] text-muted">
+            Passive and portfolio income show how close you are to not needing a paycheck.
+          </p>
+        </div>
+      )}
 
       <div>
         <span className="label">Color</span>

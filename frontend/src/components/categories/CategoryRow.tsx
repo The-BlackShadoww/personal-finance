@@ -5,6 +5,28 @@ import { CategoryIcon } from './IconPicker';
 import { Category } from '../../lib/api/categories';
 import { cn } from '../../lib/utils/cn';
 
+const TAG_LABELS: Record<NonNullable<Category['tag']>, string> = {
+  housing: 'housing',
+  debt_interest: 'debt interest',
+  insurance: 'insurance',
+  education: 'education',
+  health: 'health',
+};
+
+// e.g. "Need · fixed · housing" or "Income · active".
+function describe(category: Category) {
+  if (category.type === 'income') {
+    return ['Income', category.incomeKind].filter(Boolean).join(' · ');
+  }
+  return [
+    category.essential ? 'Need' : 'Want',
+    category.fixed ? 'fixed' : null,
+    category.tag ? TAG_LABELS[category.tag] : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 interface CategoryRowProps {
   category: Category;
   onEdit: (category: Category) => void;
@@ -32,7 +54,7 @@ export function CategoryRow({ category, onEdit, onDelete, isDeleting }: Category
             </span>
           )}
         </div>
-        <span className="text-[12px] capitalize text-muted">{category.type}</span>
+        <span className="text-[12px] text-muted">{describe(category)}</span>
       </div>
 
       <div className="flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">

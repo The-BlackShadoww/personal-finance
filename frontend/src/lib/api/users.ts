@@ -9,12 +9,18 @@ export interface UserProfile {
   avatarUrl: string | null;
   twoFactorEnabled: boolean;
   timezone: string;
+  /** ISO 4217 code, e.g. "BDT". */
+  currency: string;
+  /** BCP 47 tag used for number formatting, e.g. "en-IN". */
+  locale: string;
 }
 
 export interface UpdateProfilePayload {
   name?: string;
   avatarUrl?: string;
   timezone?: string;
+  currency?: string;
+  locale?: string;
 }
 
 export interface ChangePasswordPayload {

@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { accountKeys } from "@/lib/hooks/useAccount";
+import { financialProfileKeys } from "@/lib/hooks/useFinancialProfile";
 import { quarterlyKeys } from "@/lib/hooks/useQuarterlySummary";
 import { yearlyKeys } from "@/lib/hooks/useYearlySummary";
 
@@ -18,5 +19,9 @@ export function invalidateFinancialData(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: quarterlyKeys.all }),
     queryClient.invalidateQueries({ queryKey: ["report-preview"] }),
     queryClient.invalidateQueries({ queryKey: accountKeys.all }),
+    // Account balances (key owned by useAccounts).
+    queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+    // Its income-stability assessment is computed from transactions.
+    queryClient.invalidateQueries({ queryKey: financialProfileKeys.all }),
   ]);
 }

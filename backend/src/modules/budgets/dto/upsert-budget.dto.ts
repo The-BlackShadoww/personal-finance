@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsNumber, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { MAX_AMOUNT } from '../../../common/money/money.constants';
 
 export class UpsertBudgetDto {
   @ApiProperty({
@@ -35,6 +36,7 @@ export class UpsertBudgetDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0.01)
+  @Max(MAX_AMOUNT)
   amount!: number;
 
   @ApiPropertyOptional({

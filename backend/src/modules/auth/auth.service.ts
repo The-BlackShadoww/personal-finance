@@ -16,6 +16,7 @@ import { encryptSecret, decryptSecret } from './utils/crypto.utils';
 import { UserCacheService } from '../../common/cache/user-cache.service';
 import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
 import { categories, refreshTokens, users } from '../../db/schema';
+import { DEFAULT_CATEGORIES } from '../categories/default-categories';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -600,24 +601,17 @@ export class AuthService {
   }
 
   async seedDefaultCategories(userId: string): Promise<void> {
-    const defaults = [
-      // Income categories
-      { name: 'Salary',        type: 'income' as const,  color: '#16a34a', icon: 'briefcase',       isDefault: true, sortOrder: 0 },
-      { name: 'Freelance',     type: 'income' as const,  color: '#2563eb', icon: 'laptop',          isDefault: true, sortOrder: 1 },
-      { name: 'Investment',    type: 'income' as const,  color: '#7c3aed', icon: 'trending-up',     isDefault: true, sortOrder: 2 },
-      { name: 'Other Income',  type: 'income' as const,  color: '#0891b2', icon: 'plus-circle',     isDefault: true, sortOrder: 3 },
-      // Expense categories
-      { name: 'Groceries',     type: 'expense' as const, color: '#dc2626', icon: 'shopping-cart',   isDefault: true, sortOrder: 0 },
-      { name: 'Rent',          type: 'expense' as const, color: '#ea580c', icon: 'home',            isDefault: true, sortOrder: 1 },
-      { name: 'Utilities',     type: 'expense' as const, color: '#d97706', icon: 'zap',             isDefault: true, sortOrder: 2 },
-      { name: 'Transport',     type: 'expense' as const, color: '#65a30d', icon: 'car',             isDefault: true, sortOrder: 3 },
-      { name: 'Entertainment', type: 'expense' as const, color: '#0284c7', icon: 'film',            isDefault: true, sortOrder: 4 },
-      { name: 'Health',        type: 'expense' as const, color: '#db2777', icon: 'heart',           isDefault: true, sortOrder: 5 },
-      { name: 'Other Expense', type: 'expense' as const, color: '#6b7280', icon: 'more-horizontal', isDefault: true, sortOrder: 6 },
-    ];
+    const types = ['income', 'expense'] as const;
 
     await this.db.insert(categories).values(
-      defaults.map(d => ({ ...d, userId }))
+      types.flatMap((type) =>
+        DEFAULT_CATEGORIES.filter((d) => d.type === type).map((d, sortOrder) => ({
+          ...d,
+          userId,
+          isDefault: true,
+          sortOrder,
+        })),
+      ),
     );
   }
 }

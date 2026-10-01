@@ -1,43 +1,50 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
+import { AccountsService } from '../accounts/accounts.service';
 import { accountConfig, savingsSectors } from '../../db/schema';
 import { SetupAccountDto } from './dto/setup-account.dto';
 import { UpsertSectorDto } from './dto/upsert-sector.dto';
 
 @Injectable()
 export class AccountService {
-  constructor(@Inject(DB_TOKEN) private readonly db: DrizzleDB) {}
+  constructor(@Inject(DB_TOKEN) private readonly db: DrizzleDB, private readonly accountsService: AccountsService) {}
 
   async getAccountConfig(userId: string) {
     const [config] = await this.db.select().from(accountConfig).where(eq(accountConfig.userId, userId)).limit(1);
     return config ?? { id: null, userId, initialBalanceCents: 0, lowBalanceThresholdCents: 500000 };
   }
 
+  /** The initial balance becomes the default account's opening balance; the threshold applies to liquid money. */
   async setupAccount(userId: string, dto: SetupAccountDto) {
     const initialBalanceCents = Math.round(dto.initialBalance * 100);
     const lowBalanceThresholdCents = Math.round((dto.lowBalanceThreshold ?? 5000) * 100);
-    const [result] = await this.db.insert(accountConfig).values({ userId, initialBalanceCents, lowBalanceThresholdCents })
-      .onConflictDoUpdate({ target: accountConfig.userId, set: { initialBalanceCents, lowBalanceThresholdCents, updatedAt: new Date() } }).returning();
-    return { initialBalance: result.initialBalanceCents / 100, lowBalanceThreshold: result.lowBalanceThresholdCents / 100 };
+    await this.accountsService.setDefaultOpeningBalance(userId, initialBalanceCents);
+    const [result] = await this.db.insert(accountConfig).values({ userId, lowBalanceThresholdCents })
+      .onConflictDoUpdate({ target: accountConfig.userId, set: { lowBalanceThresholdCents, updatedAt: new Date() } }).returning();
+    return { initialBalance: initialBalanceCents / 100, lowBalanceThreshold: Number(result.lowBalanceThresholdCents) / 100 };
   }
 
+  // "Balance" is liquid money (cash, bank, mobile wallets, savings). Moving money into investments or paying down debt
+  // leaves it without counting as spending.
   async getCurrentBalance(userId: string) {
-    // Config and transaction totals in one round trip; the scalar subqueries yield NULL when the account is not set up.
-    const result = await this.db.execute(sql`
-      SELECT (SELECT initial_balance_cents FROM account_config WHERE user_id = ${userId}) AS initial_balance_cents,
-             (SELECT low_balance_threshold_cents FROM account_config WHERE user_id = ${userId}) AS low_balance_threshold_cents,
-             COALESCE(SUM(CASE WHEN type = 'income' THEN amount_cents ELSE 0 END), 0)::bigint AS total_income_cents,
-             COALESCE(SUM(CASE WHEN type = 'expense' THEN amount_cents ELSE 0 END), 0)::bigint AS total_expense_cents
-      FROM transactions WHERE user_id = ${userId} AND deleted_at IS NULL
-    `);
-    const row = result[0] as { initial_balance_cents: number | null; low_balance_threshold_cents: number | null; total_income_cents: number | string; total_expense_cents: number | string } | undefined;
-    const initialBalanceCents = row?.initial_balance_cents ?? 0;
-    const lowBalanceThresholdCents = row?.low_balance_threshold_cents ?? 500000;
-    const totalIncomeCents = Number(row?.total_income_cents ?? 0);
-    const totalExpenseCents = Number(row?.total_expense_cents ?? 0);
-    const currentBalanceCents = initialBalanceCents + totalIncomeCents - totalExpenseCents;
-    return { currentBalanceCents, initialBalanceCents, totalIncomeCents, totalExpenseCents, lowBalanceThresholdCents, isLowBalance: currentBalanceCents < lowBalanceThresholdCents };
+    const [{ accounts, totals }, flowRows, config] = await Promise.all([
+      this.accountsService.getBalances(userId),
+      this.db.execute<{ total_income_cents: number | string; total_expense_cents: number | string }>(sql`
+        SELECT COALESCE(SUM(amount_cents) FILTER (WHERE type = 'income'), 0) AS total_income_cents,
+               COALESCE(SUM(amount_cents) FILTER (WHERE type = 'expense'), 0) AS total_expense_cents
+        FROM transactions WHERE user_id = ${userId} AND deleted_at IS NULL
+      `),
+      this.getAccountConfig(userId),
+    ]);
+    // postgres-js returns bigint aggregates as strings.
+    const totalIncomeCents = Number(flowRows[0]?.total_income_cents ?? 0);
+    const totalExpenseCents = Number(flowRows[0]?.total_expense_cents ?? 0);
+    const initialBalanceCents = accounts.filter((a) => a.isLiquid && a.nature === 'asset').reduce((sum, a) => sum + a.openingBalanceCents, 0);
+    const lowBalanceThresholdCents = Number(config.lowBalanceThresholdCents);
+    const currentBalanceCents = totals.liquidCents;
+    return { currentBalanceCents, initialBalanceCents, totalIncomeCents, totalExpenseCents, lowBalanceThresholdCents, isLowBalance: currentBalanceCents < lowBalanceThresholdCents,
+      netWorthCents: totals.netWorthCents, assetsCents: totals.assetsCents, liabilitiesCents: totals.liabilitiesCents };
   }
 
   async getAccountSummary(userId: string) {

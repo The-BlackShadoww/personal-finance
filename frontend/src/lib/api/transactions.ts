@@ -1,8 +1,10 @@
 import type { ApiResponse } from "@/types/api";
 
+import type { AccountKind } from "./accounts";
 import { apiClient } from "./client";
 
-export type TransactionType = "income" | "expense";
+/** A transfer moves money between two of the user's accounts; it is not income or spending. */
+export type TransactionType = "income" | "expense" | "transfer";
 
 export type TransactionFilters = {
   page?: number;
@@ -13,26 +15,43 @@ export type TransactionFilters = {
   month?: number;
   type?: TransactionType;
   categoryId?: string;
+  accountId?: string;
 };
 
 export type TransactionCategory = {
   id: string;
   name: string;
-  type: TransactionType;
+  type: "income" | "expense";
   color?: string | null;
   icon?: string | null;
 };
 
+export type TransactionAccount = {
+  id: string;
+  name: string;
+  kind: AccountKind;
+  nature: "asset" | "liability";
+  color: string;
+  icon: string;
+};
+
 export type Transaction = {
   id: string;
-  categoryId: string;
+  /** Income/expense: where money arrived or left. Transfer: the source. */
+  accountId: string;
+  /** Transfers only: the destination. */
+  counterAccountId: string | null;
+  /** Null for transfers. */
+  categoryId: string | null;
   type: TransactionType;
   amountCents: number;
   date: string;
   transactionMonth: number;
   transactionYear: number;
   note?: string | null;
-  category: TransactionCategory;
+  category: TransactionCategory | null;
+  account: TransactionAccount;
+  counterAccount: TransactionAccount | null;
 };
 
 export type TransactionsResponse = {
@@ -44,7 +63,12 @@ export type TransactionsResponse = {
 
 export type TransactionPayload = {
   type: TransactionType;
-  categoryId: string;
+  /** Required for income and expense; omitted for transfers. */
+  categoryId?: string;
+  /** Defaults to the default account. */
+  accountId?: string;
+  /** Required for transfers. */
+  counterAccountId?: string;
   amount: number;
   date: string;
   transactionMonth: number;

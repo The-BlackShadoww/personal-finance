@@ -1,11 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PartialType, OmitType } from '@nestjs/swagger';
 import {
-  IsString, IsEnum, IsOptional,
+  IsString, IsEnum, IsOptional, IsBoolean,
   IsInt, IsHexColor, MinLength, MaxLength, Min
 } from 'class-validator';
 
 export type CategoryType = 'income' | 'expense';
+
+export const CATEGORY_TAGS = ['housing', 'debt_interest', 'insurance', 'education', 'health'] as const;
+export type CategoryTag = (typeof CATEGORY_TAGS)[number];
+
+export const INCOME_KINDS = ['active', 'passive', 'portfolio'] as const;
+export type IncomeKind = (typeof INCOME_KINDS)[number];
 
 export class CreateCategoryDto {
   @ApiProperty({
@@ -55,6 +61,43 @@ export class CreateCategoryDto {
   @IsInt()
   @Min(0)
   sortOrder?: number;
+
+  @ApiPropertyOptional({
+    description: 'Expense categories only. A need rather than a want (rent, groceries, utilities). ' +
+      'Used for 50/30/20 splits, emergency-fund targets and runway.',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  essential?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Expense categories only. Roughly the same amount every month (rent, subscriptions).',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  fixed?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Expense categories only. Marks a category that feeds a specific financial ratio.',
+    enum: CATEGORY_TAGS,
+    nullable: true,
+    example: 'housing',
+  })
+  @IsOptional()
+  @IsEnum(CATEGORY_TAGS)
+  tag?: CategoryTag | null;
+
+  @ApiPropertyOptional({
+    description: 'Income categories only. Active = work, passive = rent/royalties, portfolio = dividends/interest.',
+    enum: INCOME_KINDS,
+    nullable: true,
+    example: 'active',
+  })
+  @IsOptional()
+  @IsEnum(INCOME_KINDS)
+  incomeKind?: IncomeKind | null;
 }
 
 export class UpdateCategoryDto extends PartialType(
