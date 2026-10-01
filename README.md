@@ -17,7 +17,7 @@ A modern, full-stack personal finance application for tracking income and expens
 **Financial data**
 - **Transactions** — Create, read, update, and delete income, expense and transfer entries with dates, notes, categories and accounts. Transfers move money between your own accounts (into savings, investments or onto a card) and never count as income or spending
 - **Categories** — Custom income and expense categories with colors and icons (managed in Settings). Expense categories are marked need/want and fixed/variable and can count toward ratios such as housing or debt interest; income categories are marked active, passive or portfolio
-- **Budgets** — Monthly budget limits per category (API ready; UI page is a placeholder)
+- **Spending plan** — A monthly plan ordered the way money should flow: pay yourself first (goal funding and other saving), then needs, then wants. Expected income suggested from the last 3 months; 50/30/20, 70/20/10, zero-based or caps-only methods with targets; per-category budgets with rollover, 3-month averages and median suggestions; copy last month; move budget between categories when one runs over
 - **Accounts** — Bank, cash, mobile wallet, savings, investment, retirement and property assets plus credit cards and loans, with balances, a six-month trend, net worth and money available to spend. Archive (zero balance) or delete (unused) accounts
 - **Goals** — Money set aside inside your accounts: an emergency fund sized from essential spending (with a one-month starter milestone), sinking funds with dates (optionally yearly and linked to a spending category), and other goals. Fund goals with a percent of every income or a fixed monthly amount so income is shared out the moment it is recorded (with Undo), or add money by hand; withdrawals ask for a reason. Available to spend = liquid money minus goal money
 - **Account setup** — Default-account opening balance and low-balance threshold (checked against money available to spend)
@@ -42,8 +42,7 @@ A modern, full-stack personal finance application for tracking income and expens
 
 ### Planned / in progress
 
-- **Budgets UI** — Backend endpoints exist; the `/budgets` page still needs a full interface
-- **Roadmap** — Recurring transactions, the spending plan and financial-health insights; see [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)
+- **Roadmap** — Recurring transactions, financial-health insights, wealth-building tools and monthly reviews; see [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)
 - Additional polish, tests, and production hardening
 
 ---

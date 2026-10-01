@@ -23,6 +23,8 @@ export function invalidateFinancialData(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: ["accounts"] }),
     // Goal balances (key owned by useGoals): incomes and expenses can move them.
     queryClient.invalidateQueries({ queryKey: ["goals"] }),
+    // Spending plans show spending and goal funding (key owned by useBudgets).
+    queryClient.invalidateQueries({ queryKey: ["budgets"] }),
     // Its income-stability assessment is computed from transactions.
     queryClient.invalidateQueries({ queryKey: financialProfileKeys.all }),
   ]);

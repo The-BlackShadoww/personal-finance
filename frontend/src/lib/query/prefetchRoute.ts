@@ -4,6 +4,7 @@ import { accountSummaryQueryOptions } from "@/lib/hooks/useAccount";
 import { accountsQueryOptions } from "@/lib/hooks/useAccounts";
 import { categoriesQueryOptions } from "@/lib/hooks/useCategories";
 import { prefetchDashboardOverview } from "@/lib/hooks/useDashboardOverview";
+import { planQueryOptions } from "@/lib/hooks/useBudgets";
 import { goalsQueryOptions } from "@/lib/hooks/useGoals";
 import { reportPreviewQueryOptions } from "@/lib/hooks/useReportPreview";
 import { transactionsQueryOptions } from "@/lib/hooks/useTransactions";
@@ -28,6 +29,9 @@ export function prefetchRoute(queryClient: QueryClient, href: string) {
     case "/accounts":
       void queryClient.prefetchQuery(accountsQueryOptions());
       void queryClient.prefetchQuery(accountSummaryQueryOptions());
+      break;
+    case "/budgets":
+      void queryClient.prefetchQuery(planQueryOptions(year, month));
       break;
     case "/goals":
       void queryClient.prefetchQuery(goalsQueryOptions());

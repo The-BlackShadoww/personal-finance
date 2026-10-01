@@ -20,7 +20,7 @@ export const NAVIGATION = [
   { href: "/accounts", label: "Accounts" },
   { href: "/goals", label: "Goals" },
   { href: "/transactions", label: "Transactions" },
-  { href: "/budgets", label: "Budgets" },
+  { href: "/budgets", label: "Plan" },
   { href: "/reports", label: "Reports" },
   { href: "/settings", label: "Settings" },
 ];

@@ -4,7 +4,7 @@ This plan covers every feature proposed in the product review (Tiers 1–3) and
 builds them so the app actively guides users through the evidence-based order of
 financial operations and the behavioural rules that make them stick.
 
-> **Status:** Phases 0–2 implemented; Phases 3–7 proposed · **Scope:** backend (NestJS + Drizzle) and frontend (Next.js)
+> **Status:** Phases 0–3 implemented; Phases 4–7 proposed · **Scope:** backend (NestJS + Drizzle) and frontend (Next.js)
 > · **Out of scope:** bank-feed integrations, multi-currency within one user,
 > ticker-level market prices.
 
@@ -381,6 +381,13 @@ would break it, the API returns a warning (not an error) so the UI can ask which
 ---
 
 ## Phase 3 — Spending plan: budgets & rule templates
+
+> **Done.** Migration `0008_phase3_spending_plan`; the nav item is now **Plan** (`/budgets`).
+> Simplifications: budgets are deleted outright (a plan is not a record, and soft-deleted rows
+> would collide with the unique month/category key); there is no separate per-user method
+> preference — a new month inherits the latest plan's method (50/30/20 for a first plan);
+> suggestions come with the plan response instead of a separate `/suggest` endpoint, and
+> `PUT /budgets/bulk` applies them, edits and reallocations in one call.
 
 *Review items #3 and #7.* The backend `budgets` module exists; this phase adds the UI and
 planning logic.

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsNumber, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsNumber, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { MAX_AMOUNT } from '../../../common/money/money.constants';
 
 export class UpsertBudgetDto {
@@ -46,4 +46,9 @@ export class UpsertBudgetDto {
   @IsOptional()
   @IsUUID()
   categoryId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Carry leftovers (or overspending) into next month' })
+  @IsOptional()
+  @IsBoolean()
+  rollover?: boolean;
 }

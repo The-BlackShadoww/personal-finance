@@ -271,6 +271,8 @@ export const budgets = pgTable(
     year: integer('year').notNull(),
     month: integer('month').notNull(),
     amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+    // Unspent money (or overspending) carries into the next month.
+    rollover: boolean('rollover').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -283,6 +285,47 @@ export const budgets = pgTable(
     unique('budgets_user_year_month_category_idx')
       .on(table.userId, table.year, table.month, table.categoryId)
       .nullsNotDistinct(),
+  ],
+);
+
+export const budgetMethodEnum = pgEnum('budget_method', [
+  // Every unit of expected income gets a job; "left to assign" reaches 0.
+  'zero_based',
+  // Needs ≤ 50%, wants ≤ 30%, saving and extra debt ≥ 20%.
+  'fifty_thirty_twenty',
+  // Living ≤ 70%, saving ≥ 20%, debt and giving 10%.
+  'seventy_twenty_ten',
+  // Caps per category, no income targets.
+  'category_caps',
+]);
+
+/** A month's spending plan: expected income and the budgeting method. */
+export const monthlyPlans = pgTable(
+  'monthly_plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    year: integer('year').notNull(),
+    month: integer('month').notNull(),
+    // Null means "suggest from recent income".
+    expectedIncomeCents: bigint('expected_income_cents', { mode: 'number' }),
+    method: budgetMethodEnum('method').notNull().default('fifty_thirty_twenty'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('monthly_plans_user_period_idx').on(
+      table.userId,
+      table.year,
+      table.month,
+    ),
   ],
 );
 
