@@ -54,6 +54,15 @@ export type Transaction = {
   counterAccount: TransactionAccount | null;
 };
 
+/** A goal's share of an income, or what a goal paid towards an expense. */
+export type GoalMovement = { goalId: string; name: string; amountCents: number };
+
+/** What creating an entry returns: the entry plus what goals did because of it. */
+export type CreatedTransaction = Transaction & {
+  goalAllocation: GoalMovement[];
+  goalPayment: GoalMovement | null;
+};
+
 export type TransactionsResponse = {
   data: Transaction[];
   total: number;
@@ -69,6 +78,8 @@ export type TransactionPayload = {
   accountId?: string;
   /** Required for transfers. */
   counterAccountId?: string;
+  /** Expenses only: pay from this goal (e.g. a sinking fund). */
+  payFromGoalId?: string;
   amount: number;
   date: string;
   transactionMonth: number;
@@ -95,7 +106,7 @@ export const transactionsApi = {
   },
 
   async create(payload: TransactionPayload) {
-    const response = await apiClient<ApiResponse<Transaction>>(
+    const response = await apiClient<ApiResponse<CreatedTransaction>>(
       "/transactions",
       {
         method: "POST",

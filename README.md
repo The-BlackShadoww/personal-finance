@@ -19,7 +19,8 @@ A modern, full-stack personal finance application for tracking income and expens
 - **Categories** — Custom income and expense categories with colors and icons (managed in Settings). Expense categories are marked need/want and fixed/variable and can count toward ratios such as housing or debt interest; income categories are marked active, passive or portfolio
 - **Budgets** — Monthly budget limits per category (API ready; UI page is a placeholder)
 - **Accounts** — Bank, cash, mobile wallet, savings, investment, retirement and property assets plus credit cards and loans, with balances, a six-month trend, net worth and money available to spend. Archive (zero balance) or delete (unused) accounts
-- **Account setup** — Default-account opening balance, low-balance threshold, and savings-sector allocations
+- **Goals** — Money set aside inside your accounts: an emergency fund sized from essential spending (with a one-month starter milestone), sinking funds with dates (optionally yearly and linked to a spending category), and other goals. Fund goals with a percent of every income or a fixed monthly amount so income is shared out the moment it is recorded (with Undo), or add money by hand; withdrawals ask for a reason. Available to spend = liquid money minus goal money
+- **Account setup** — Default-account opening balance and low-balance threshold (checked against money available to spend)
 - **Calculations** — Monthly, quarterly, and yearly summaries, category breakdowns, and where each month's surplus went (savings, investments, debt) for the dashboard
 - **Reports** — CSV and PDF export for any date range in the user's currency, with preview and local download history
 - **Currency & number format** — Any ISO 4217 currency and a choice of number grouping (including lakh/crore); money is stored as 64-bit minor units
@@ -42,7 +43,7 @@ A modern, full-stack personal finance application for tracking income and expens
 ### Planned / in progress
 
 - **Budgets UI** — Backend endpoints exist; the `/budgets` page still needs a full interface
-- **Roadmap** — Funded goals, recurring transactions and financial-health insights; see [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)
+- **Roadmap** — Recurring transactions, the spending plan and financial-health insights; see [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)
 - Additional polish, tests, and production hardening
 
 ---

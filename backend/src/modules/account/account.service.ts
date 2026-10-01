@@ -2,13 +2,14 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
 import { AccountsService } from '../accounts/accounts.service';
+import { GoalsService } from '../goals/goals.service';
 import { accountConfig, savingsSectors } from '../../db/schema';
 import { SetupAccountDto } from './dto/setup-account.dto';
 import { UpsertSectorDto } from './dto/upsert-sector.dto';
 
 @Injectable()
 export class AccountService {
-  constructor(@Inject(DB_TOKEN) private readonly db: DrizzleDB, private readonly accountsService: AccountsService) {}
+  constructor(@Inject(DB_TOKEN) private readonly db: DrizzleDB, private readonly accountsService: AccountsService, private readonly goalsService: GoalsService) {}
 
   async getAccountConfig(userId: string) {
     const [config] = await this.db.select().from(accountConfig).where(eq(accountConfig.userId, userId)).limit(1);
@@ -26,9 +27,9 @@ export class AccountService {
   }
 
   // "Balance" is liquid money (cash, bank, mobile wallets, savings). Moving money into investments or paying down debt
-  // leaves it without counting as spending.
+  // leaves it without counting as spending. "Available" is the part of it not set aside for goals.
   async getCurrentBalance(userId: string) {
-    const [{ accounts, totals }, flowRows, config] = await Promise.all([
+    const [{ accounts, totals }, flowRows, config, earmarks] = await Promise.all([
       this.accountsService.getBalances(userId),
       this.db.execute<{ total_income_cents: number | string; total_expense_cents: number | string }>(sql`
         SELECT COALESCE(SUM(amount_cents) FILTER (WHERE type = 'income'), 0) AS total_income_cents,
@@ -36,6 +37,7 @@ export class AccountService {
         FROM transactions WHERE user_id = ${userId} AND deleted_at IS NULL
       `),
       this.getAccountConfig(userId),
+      this.goalsService.getEarmarks(userId),
     ]);
     // postgres-js returns bigint aggregates as strings.
     const totalIncomeCents = Number(flowRows[0]?.total_income_cents ?? 0);
@@ -43,22 +45,19 @@ export class AccountService {
     const initialBalanceCents = accounts.filter((a) => a.isLiquid && a.nature === 'asset').reduce((sum, a) => sum + a.openingBalanceCents, 0);
     const lowBalanceThresholdCents = Number(config.lowBalanceThresholdCents);
     const currentBalanceCents = totals.liquidCents;
-    return { currentBalanceCents, initialBalanceCents, totalIncomeCents, totalExpenseCents, lowBalanceThresholdCents, isLowBalance: currentBalanceCents < lowBalanceThresholdCents,
+    const earmarkedCents = earmarks.earmarkedLiquidCents;
+    const availableCents = currentBalanceCents - earmarkedCents;
+    return { currentBalanceCents, earmarkedCents, availableCents, initialBalanceCents, totalIncomeCents, totalExpenseCents, lowBalanceThresholdCents,
+      isLowBalance: availableCents < lowBalanceThresholdCents, goals: earmarks.goals,
       netWorthCents: totals.netWorthCents, assetsCents: totals.assetsCents, liabilitiesCents: totals.liabilitiesCents };
   }
 
   async getAccountSummary(userId: string) {
-    const [balance, sectors] = await Promise.all([this.getCurrentBalance(userId), this.getSectors(userId)]);
-    const allocations = sectors.map((sector) => {
-      const allocatedCents = Math.round((balance.currentBalanceCents * sector.percentage) / 100);
-      return { ...sector, allocatedCents, targetAmountCents: sector.targetAmountCents ?? null,
-        progressPercent: sector.targetAmountCents ? Math.min(Math.round((allocatedCents / sector.targetAmountCents) * 100), 100) : null };
-    });
-    const cashCents = balance.currentBalanceCents - allocations.reduce((sum, sector) => sum + sector.allocatedCents, 0);
-    return { ...balance, currentBalanceDollars: balance.currentBalanceCents / 100, sectors: allocations,
-      cash: { name: 'Cash' as const, percentage: balance.currentBalanceCents > 0 ? Math.round((cashCents / balance.currentBalanceCents) * 100) : 0, allocatedCents: cashCents, color: '#22c55e', icon: 'banknote' } };
+    const balance = await this.getCurrentBalance(userId);
+    return { ...balance, currentBalanceDollars: balance.currentBalanceCents / 100 };
   }
 
+  // Savings sectors were replaced by goals (migration 0007). Kept read/write for one release; no longer used by the app.
   async getSectors(userId: string) { return this.db.select().from(savingsSectors).where(eq(savingsSectors.userId, userId)).orderBy(asc(savingsSectors.sortOrder), asc(savingsSectors.name)); }
 
   async createSector(userId: string, dto: UpsertSectorDto) {

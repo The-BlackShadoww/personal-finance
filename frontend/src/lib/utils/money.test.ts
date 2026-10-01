@@ -6,6 +6,7 @@ import {
   formatCompactMoney,
   formatMoney,
   formatMoneyAbs,
+  parseAmountInput,
   setMoneyFormat,
 } from "./money";
 
@@ -42,5 +43,18 @@ describe("money formatting", () => {
   it("falls back to dollars for an invalid format", () => {
     setMoneyFormat({ currency: "NOPE", locale: "en-US" });
     expect(formatMoney(1)).toBe("$1.00");
+  });
+});
+
+describe("parseAmountInput", () => {
+  it("reads grouping commas and decimal commas", () => {
+    expect(parseAmountInput("1,250.50")).toBe(1250.5);
+    expect(parseAmountInput("1250,50")).toBe(1250.5);
+    expect(parseAmountInput("1.250,50")).toBe(1250.5);
+    expect(parseAmountInput("1,250")).toBe(1250);
+  });
+  it("treats empty as cleared and junk as invalid", () => {
+    expect(parseAmountInput("  ")).toBeNull();
+    expect(parseAmountInput("abc")).toBeNaN();
   });
 });

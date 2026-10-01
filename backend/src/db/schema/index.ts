@@ -4,6 +4,7 @@ import {
   bigint,
   boolean,
   check,
+  date,
   index,
   integer,
   pgEnum,
@@ -315,6 +316,140 @@ export const savingsSectors = pgTable(
   ],
 );
 
+export const goalKindEnum = pgEnum('goal_kind', [
+  // One per user; its target is sized from essential spending.
+  'emergency',
+  // A known future cost with a date (insurance, festival, laptop).
+  'sinking',
+  'long_term',
+  'custom',
+]);
+
+export const goalFundingRuleEnum = pgEnum('goal_funding_rule', [
+  // A share of every income, set aside when the income is recorded.
+  'percent_of_income',
+  // A fixed amount per billing month, taken from that month's income.
+  'fixed_monthly',
+  'manual',
+]);
+
+export const goalContributionKindEnum = pgEnum('goal_contribution_kind', [
+  'contribution',
+  'withdrawal',
+  // Set aside automatically from an income.
+  'auto',
+  // Carried over when savings sectors became goals.
+  'opening',
+]);
+
+export const goalWithdrawalReasonEnum = pgEnum('goal_withdrawal_reason', [
+  'emergency',
+  'planned_purchase',
+  'rebalancing',
+  'other',
+]);
+
+/**
+ * Money earmarked inside an account for a purpose. A goal's balance is the
+ * sum of its contributions; the money itself stays in `accountId`.
+ */
+export const goals = pgTable(
+  'goals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 100 }).notNull(),
+    kind: goalKindEnum('kind').notNull(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    // Not used for the emergency goal, whose target is computed.
+    targetAmountCents: bigint('target_amount_cents', { mode: 'number' }),
+    targetDate: date('target_date', { mode: 'string' }),
+    // Emergency goal only; null follows the financial profile (3 or 6).
+    targetMonths: integer('target_months'),
+    // Sinking funds: the target date moves on a year once it passes.
+    repeatsYearly: boolean('repeats_yearly').notNull().default(false),
+    // Sinking funds: expenses in this category can be paid from the goal.
+    categoryId: uuid('category_id').references(() => categories.id),
+    // Order in which income is shared out; lower first.
+    priority: integer('priority').notNull().default(0),
+    fundingRule: goalFundingRuleEnum('funding_rule').notNull().default('manual'),
+    fundingPercentBps: integer('funding_percent_bps'),
+    fundingAmountCents: bigint('funding_amount_cents', { mode: 'number' }),
+    color: varchar('color', { length: 7 }).notNull().default('#16a34a'),
+    icon: varchar('icon', { length: 50 }).notNull().default('piggy-bank'),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('goals_user_id_idx').on(table.userId),
+    uniqueIndex('goals_user_name_idx').on(table.userId, table.name),
+    uniqueIndex('goals_user_emergency_idx')
+      .on(table.userId)
+      .where(sql`${table.kind} = 'emergency'`),
+    check(
+      'goals_funding_shape_check',
+      sql`CASE ${table.fundingRule}
+        WHEN 'percent_of_income' THEN ${table.fundingPercentBps} BETWEEN 1 AND 10000
+        WHEN 'fixed_monthly' THEN ${table.fundingAmountCents} > 0
+        ELSE true END`,
+    ),
+  ],
+);
+
+export const goalContributions = pgTable(
+  'goal_contributions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    goalId: uuid('goal_id')
+      .notNull()
+      .references(() => goals.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    // Positive adds to the goal, negative takes from it.
+    amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+    kind: goalContributionKindEnum('kind').notNull(),
+    // The income that funded an auto contribution, or the expense a
+    // withdrawal paid for. Removing that entry removes this row.
+    sourceTransactionId: uuid('source_transaction_id').references(
+      () => transactions.id,
+    ),
+    // The transfer that moved the money into the goal's account, if any.
+    transferTransactionId: uuid('transfer_transaction_id').references(
+      () => transactions.id,
+    ),
+    reason: goalWithdrawalReasonEnum('reason'),
+    note: varchar('note', { length: 200 }),
+    date: date('date', { mode: 'string' }).notNull(),
+    // Billing period the money came from, for fixed-monthly funding.
+    periodYear: integer('period_year').notNull(),
+    periodMonth: integer('period_month').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('goal_contributions_goal_id_idx').on(table.goalId),
+    index('goal_contributions_user_id_idx').on(table.userId),
+    index('goal_contributions_source_idx').on(table.sourceTransactionId),
+    check(
+      'goal_contributions_sign_check',
+      sql`CASE WHEN ${table.kind}::text = 'withdrawal'
+        THEN ${table.amountCents} < 0 AND ${table.reason} IS NOT NULL
+        ELSE ${table.amountCents} > 0 END`,
+    ),
+  ],
+);
+
 // Answers that tune thresholds and advice (emergency-fund size, insurance
 // checks, employer match, FI assumptions). A null answer means "not answered".
 export const financialProfiles = pgTable('financial_profiles', {
@@ -371,6 +506,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   savingsSectors: many(savingsSectors),
   financialProfile: one(financialProfiles),
   accounts: many(accounts),
+  goals: many(goals),
 }));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
@@ -446,3 +582,14 @@ export const financialProfilesRelations = relations(
     }),
   }),
 );
+
+export const goalsRelations = relations(goals, ({ one, many }) => ({
+  user: one(users, { fields: [goals.userId], references: [users.id] }),
+  account: one(accounts, { fields: [goals.accountId], references: [accounts.id] }),
+  category: one(categories, { fields: [goals.categoryId], references: [categories.id] }),
+  contributions: many(goalContributions),
+}));
+
+export const goalContributionsRelations = relations(goalContributions, ({ one }) => ({
+  goal: one(goals, { fields: [goalContributions.goalId], references: [goals.id] }),
+}));

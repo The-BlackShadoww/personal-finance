@@ -101,6 +101,16 @@ export class CreateTransactionDto {
   counterAccountId?: string;
 
   @ApiPropertyOptional({
+    description:
+      'Expenses only: pay from this goal (e.g. a sinking fund). Up to the expense amount is taken ' +
+      "from the goal, and moved to the paying account if the goal's money is elsewhere.",
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsOptional()
+  @IsUUID()
+  payFromGoalId?: string;
+
+  @ApiPropertyOptional({
     description: 'Optional note or description for this transaction',
     example: 'Monthly grocery run at Agora',
     maxLength: 500,

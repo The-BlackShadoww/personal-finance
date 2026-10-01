@@ -85,3 +85,17 @@ export function currencySymbol(): string {
       .find((part) => part.type === "currency")?.value ?? active.currency
   );
 }
+
+/**
+ * Parses a typed amount. Empty → null; otherwise a number, or NaN when
+ * invalid. Accepts grouping commas ("1,250.50") and a decimal comma
+ * ("1250,50").
+ */
+export function parseAmountInput(raw: string): number | null {
+  const compact = raw.trim().replace(/\s/g, "");
+  if (compact === "") return null;
+  // The last separator is the decimal one when 1–2 digits follow it
+  // ("1.250,50"); otherwise commas group thousands ("1,250").
+  const decimalComma = compact.lastIndexOf(",") > compact.lastIndexOf(".") && /,\d{1,2}$/.test(compact);
+  return Number(decimalComma ? compact.replace(/\./g, "").replace(",", ".") : compact.replace(/,/g, ""));
+}

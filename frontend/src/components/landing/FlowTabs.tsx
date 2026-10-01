@@ -23,7 +23,7 @@ const FLOWS = [
   {
     id: "allocate",
     title: "Give savings a place",
-    body: "Split your balance into sectors like an emergency fund or travel, set goals, and let cash hold the remainder.",
+    body: "Set money aside for an emergency fund or a trip the moment income arrives, and see exactly what is left to spend.",
     image: "https://picsum.photos/seed/forest-path/1600/900",
     card: { label: "Emergency fund", value: "$6,400", meta: "64% of $10,000 goal" },
   },

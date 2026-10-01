@@ -3,12 +3,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, CalendarBlank, Warning } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import type { Account } from "@/lib/api/accounts";
-import type { Transaction, TransactionPayload, TransactionType } from "@/lib/api/transactions";
+import { goalsApi } from "@/lib/api/goals";
+import type { CreatedTransaction, Transaction, TransactionPayload, TransactionType } from "@/lib/api/transactions";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { useCreateTransaction } from "@/lib/hooks/useCreateTransaction";
 import { useUpdateTransaction } from "@/lib/hooks/useUpdateTransaction";
@@ -18,6 +20,8 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { useAccountSummary } from "@/lib/hooks/useAccount";
 import { useAccounts } from "@/lib/hooks/useAccounts";
+import { useGoals } from "@/lib/hooks/useGoals";
+import { invalidateFinancialData } from "@/lib/hooks/invalidateFinancialData";
 import { formatCents, formatMoney } from "@/lib/utils/money";
 
 const transactionSchema = z
@@ -121,6 +125,9 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
   const isEditing = Boolean(transaction);
   const { data: accountSummary } = useAccountSummary();
   const [amountDisplay, setAmountDisplay] = useState("");
+  const queryClient = useQueryClient();
+  const { data: goalsData } = useGoals();
+  const [payFromGoal, setPayFromGoal] = useState(true);
 
   const {
     register,
@@ -154,6 +161,14 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
     const current = [transaction?.accountId, transaction?.counterAccountId];
     return all.filter((account) => account.archivedAt === null || current.includes(account.id));
   }, [accountsData, transaction]);
+  const categoryId = watch("categoryId");
+  // A sinking fund linked to this category can pay for the expense.
+  const fundingGoal =
+    !isEditing && selectedType === "expense"
+      ? goalsData?.goals.find(
+          (goal) => goal.categoryId === categoryId && goal.archivedAt === null && goal.balanceCents > 0,
+        )
+      : undefined;
   const fromAccount = accounts.find((account) => account.id === accountId);
   const toAccount = accounts.find((account) => account.id === counterAccountId);
   const submitting = createTransaction.isPending || updateTransaction.isPending;
@@ -192,7 +207,7 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
     !isEditing && amountValue > 0
       ? liquidDelta(selectedType, Math.round(amountValue * 100), fromAccount, toAccount)
       : 0;
-  const projectedBalance = accountSummary && delta < 0 ? accountSummary.currentBalanceCents + delta : null;
+  const projectedBalance = accountSummary && delta < 0 ? accountSummary.availableCents + delta : null;
   const isProjectedLow =
     projectedBalance !== null && accountSummary !== undefined
       ? projectedBalance < accountSummary.lowBalanceThresholdCents
@@ -219,6 +234,7 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
       ...rest,
       note: values.note?.trim() || undefined,
       ...(values.type === "transfer" ? { counterAccountId: destination } : { categoryId }),
+      ...(fundingGoal && payFromGoal ? { payFromGoalId: fundingGoal.id } : {}),
     };
 
     if (transaction) {
@@ -235,12 +251,37 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
     }
 
     createTransaction.mutate(payload, {
-      onSuccess: () => {
+      onSuccess: (created) => {
         rememberAccountId(values.accountId);
-        toast.success(values.type === "transfer" ? "Transfer recorded." : "Transaction created.");
+        announce(created);
         onSuccess();
       },
     });
+  }
+
+  /** Confirms the entry, including what goals did because of it. */
+  function announce(created: CreatedTransaction) {
+    if (created.goalAllocation.length) {
+      const total = created.goalAllocation.reduce((sum, item) => sum + item.amountCents, 0);
+      const parts = created.goalAllocation.map((item) => `${item.name} ${formatCents(item.amountCents)}`).join(" · ");
+      // The form closes on success, so Undo talks to the API directly.
+      toast.success(`Income recorded. Set aside ${formatCents(total)}: ${parts}`, {
+        label: "Undo",
+        onClick: () => {
+          goalsApi
+            .undoAllocation(created.id)
+            .then(() => invalidateFinancialData(queryClient))
+            .then(() => toast.success("Set-aside undone; the money is available to spend."))
+            .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Could not undo."));
+        },
+      });
+      return;
+    }
+    if (created.goalPayment) {
+      toast.success(`Expense recorded. Paid ${formatCents(created.goalPayment.amountCents)} from ${created.goalPayment.name}.`);
+      return;
+    }
+    toast.success(created.type === "transfer" ? "Transfer recorded." : "Transaction created.");
   }
 
   const accountOptions = (exclude?: string) => {
@@ -390,6 +431,20 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
               ))}
             </select>
             {errors.categoryId ? <FieldError message={errors.categoryId.message} /> : null}
+            {fundingGoal ? (
+              <label className="mt-2 flex items-start gap-2 text-[12px] text-foreground">
+                <input
+                  type="checkbox"
+                  checked={payFromGoal}
+                  onChange={(event) => setPayFromGoal(event.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 accent-[var(--ds-foreground)]"
+                />
+                <span>
+                  Pay from {fundingGoal.name}{" "}
+                  <span className="text-muted">({formatCents(fundingGoal.balanceCents)} saved)</span>
+                </span>
+              </label>
+            ) : null}
           </div>
           <div>
             <label className="label" htmlFor="accountId">

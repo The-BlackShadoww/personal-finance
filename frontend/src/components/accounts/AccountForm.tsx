@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import type { Account, AccountKind, AccountPayload, AssetClass } from "@/lib/api/accounts";
 import { ACCOUNT_KINDS, ASSET_KINDS, LIABILITY_KINDS } from "@/lib/accounts";
-import { currencySymbol } from "@/lib/utils/money";
+import { currencySymbol, parseAmountInput } from "@/lib/utils/money";
 
 const ASSET_CLASSES: Array<{ value: AssetClass; label: string }> = [
   { value: "equity", label: "Shares / equity funds" },
@@ -67,17 +67,6 @@ function initialState(account?: Account): FormState {
   };
 }
 
-/**
- * Empty → null (cleared); otherwise a number, or NaN when invalid. Accepts
- * grouping commas ("1,250.50") and a decimal comma ("1250,50").
- */
-function parseOptional(raw: string): number | null {
-  const compact = raw.trim().replace(/\s/g, "");
-  if (compact === "") return null;
-  const decimalComma = !compact.includes(".") && /,\d{1,2}$/.test(compact);
-  return Number(decimalComma ? compact.replace(/\./g, "").replace(",", ".") : compact.replace(/,/g, ""));
-}
-
 export function AccountForm({
   account,
   submitting,
@@ -119,11 +108,11 @@ export function AccountForm({
   function submit(event: FormEvent) {
     event.preventDefault();
     const numbers = {
-      openingBalance: parseOptional(form.openingBalance),
-      interestRate: parseOptional(form.interestRate),
-      minimumPayment: parseOptional(form.minimumPayment),
-      creditLimit: parseOptional(form.creditLimit),
-      expenseRatio: parseOptional(form.expenseRatio),
+      openingBalance: parseAmountInput(form.openingBalance),
+      interestRate: parseAmountInput(form.interestRate),
+      minimumPayment: parseAmountInput(form.minimumPayment),
+      creditLimit: parseAmountInput(form.creditLimit),
+      expenseRatio: parseAmountInput(form.expenseRatio),
     };
     if (!form.name.trim()) return setValidation("Give the account a name.");
     if (Object.values(numbers).some((value) => value !== null && !Number.isFinite(value))) {

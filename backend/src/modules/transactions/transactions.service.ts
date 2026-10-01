@@ -22,7 +22,11 @@ import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
 import { accounts, categories, transactions } from '../../db/schema';
 import { AccountService } from '../account/account.service';
 import { AccountsService } from '../accounts/accounts.service';
-import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { GoalsService, type LedgerEntry } from '../goals/goals.service';
+import {
+  CreateTransactionDto,
+  TransactionType,
+} from './dto/create-transaction.dto';
 import { TransactionFiltersDto } from './dto/transaction-filters.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 
@@ -42,6 +46,7 @@ export class TransactionsService {
     @Inject(DB_TOKEN) private readonly db: DrizzleDB,
     private readonly accountService: AccountService,
     private readonly accountsService: AccountsService,
+    private readonly goalsService: GoalsService,
   ) {}
 
   /**
@@ -66,7 +71,8 @@ export class TransactionsService {
         ? amountCents
         : -amountCents
       : 0;
-    const projectedBalanceCents = balance.currentBalanceCents + delta;
+    // Against money not set aside for goals.
+    const projectedBalanceCents = balance.availableCents + delta;
     return {
       projectedBalanceCents,
       isLowBalance: projectedBalanceCents < balance.lowBalanceThresholdCents,
@@ -106,6 +112,11 @@ export class TransactionsService {
     return transaction;
   }
 
+  /**
+   * Records an entry. An income into a spendable account is shared out to
+   * goals funded from income (pay yourself first); an expense can be paid
+   * from a goal. Both happen in the same database transaction.
+   */
   async create(userId: string, dto: CreateTransactionDto) {
     const accountId =
       dto.accountId ??
@@ -117,24 +128,47 @@ export class TransactionsService {
       counterAccountId: dto.counterAccountId ?? null,
       categoryId: dto.categoryId ?? null,
     });
+    if (dto.payFromGoalId && dto.type !== TransactionType.Expense) {
+      throw new BadRequestException('Only expenses can be paid from a goal');
+    }
 
-    const [created] = await this.db
-      .insert(transactions)
-      .values({
-        userId,
-        accountId,
-        counterAccountId: dto.counterAccountId ?? null,
-        categoryId: dto.categoryId ?? null,
-        type: dto.type,
-        amountCents: Math.round(dto.amount * 100),
-        date: new Date(dto.date),
-        transactionMonth: dto.transactionMonth,
-        transactionYear: dto.transactionYear,
-        note: dto.note,
-      })
-      .returning({ id: transactions.id });
+    const { id, goalAllocation, goalPayment } = await this.db.transaction(
+      async (tx) => {
+        const [created] = await tx
+          .insert(transactions)
+          .values({
+            userId,
+            accountId,
+            counterAccountId: dto.counterAccountId ?? null,
+            categoryId: dto.categoryId ?? null,
+            type: dto.type,
+            amountCents: Math.round(dto.amount * 100),
+            date: new Date(dto.date),
+            transactionMonth: dto.transactionMonth,
+            transactionYear: dto.transactionYear,
+            note: dto.note,
+          })
+          .returning();
 
-    return this.findOne(userId, created.id);
+        return {
+          id: created.id,
+          goalAllocation:
+            created.type === 'income'
+              ? await this.goalsService.allocateIncome(tx, userId, created)
+              : [],
+          goalPayment: dto.payFromGoalId
+            ? await this.goalsService.payFromGoal(
+                tx,
+                userId,
+                dto.payFromGoalId,
+                created,
+              )
+            : null,
+        };
+      },
+    );
+
+    return { ...(await this.findOne(userId, id)), goalAllocation, goalPayment };
   }
 
   async update(
@@ -168,54 +202,88 @@ export class TransactionsService {
       ].filter((id): id is string => id !== null),
     });
 
-    const [updated] = await this.db
-      .update(transactions)
-      .set({
-        ...shape,
-        amountCents:
-          dto.amount === undefined ? undefined : Math.round(dto.amount * 100),
-        date: dto.date === undefined ? undefined : new Date(dto.date),
-        transactionMonth: dto.transactionMonth,
-        transactionYear: dto.transactionYear,
-        note: dto.note,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(transactions.id, transactionId),
-          eq(transactions.userId, userId),
-          isNull(transactions.deletedAt),
-        ),
-      )
-      .returning({ id: transactions.id });
-
-    if (!updated) {
-      throw new NotFoundException('Transaction not found');
+    const links = await this.goalsService.findLinks(
+      this.db,
+      userId,
+      transactionId,
+    );
+    if (links.some((link) => link.transferTransactionId === transactionId)) {
+      throw new BadRequestException(
+        'This transfer was made by a goal. Delete it, or change the goal instead.',
+      );
     }
+
+    await this.db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(transactions)
+        .set({
+          ...shape,
+          amountCents:
+            dto.amount === undefined ? undefined : Math.round(dto.amount * 100),
+          date: dto.date === undefined ? undefined : new Date(dto.date),
+          transactionMonth: dto.transactionMonth,
+          transactionYear: dto.transactionYear,
+          note: dto.note,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(transactions.id, transactionId),
+            eq(transactions.userId, userId),
+            isNull(transactions.deletedAt),
+          ),
+        )
+        .returning();
+
+      if (!updated) {
+        throw new NotFoundException('Transaction not found');
+      }
+
+      // Goal links follow the edited entry: an income that was shared out
+      // is shared out again; an expense paid from a goal is paid again.
+      if (!links.length) return;
+      const released = await this.goalsService.releaseLinked(
+        tx,
+        userId,
+        transactionId,
+      );
+      const entry: LedgerEntry = updated;
+      if (released.auto.length && updated.type === 'income') {
+        await this.goalsService.allocateIncome(tx, userId, entry);
+      }
+      const paidFrom = released.withdrawals[0]?.goalId;
+      if (paidFrom && updated.type === 'expense') {
+        await this.goalsService.payFromGoal(tx, userId, paidFrom, entry);
+      }
+    });
 
     return this.findOne(userId, transactionId);
   }
 
+  /** Soft-deletes an entry and anything goals did because of it. */
   async remove(userId: string, transactionId: string) {
-    // The ownership and not-already-deleted conditions live in the WHERE
-    // clause, so a single statement both checks and deletes.
-    const [removed] = await this.db
-      .update(transactions)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(
-        and(
-          eq(transactions.id, transactionId),
-          eq(transactions.userId, userId),
-          isNull(transactions.deletedAt),
-        ),
-      )
-      .returning({ id: transactions.id });
+    return this.db.transaction(async (tx) => {
+      // The ownership and not-already-deleted conditions live in the WHERE
+      // clause, so a single statement both checks and deletes.
+      const [removed] = await tx
+        .update(transactions)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(
+          and(
+            eq(transactions.id, transactionId),
+            eq(transactions.userId, userId),
+            isNull(transactions.deletedAt),
+          ),
+        )
+        .returning({ id: transactions.id });
 
-    if (!removed) {
-      throw new NotFoundException('Transaction not found');
-    }
+      if (!removed) {
+        throw new NotFoundException('Transaction not found');
+      }
 
-    return { success: true };
+      await this.goalsService.releaseLinked(tx, userId, transactionId);
+      return { success: true };
+    });
   }
 
   async getRawTransactionsForReport(

@@ -21,6 +21,8 @@ export function invalidateFinancialData(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: accountKeys.all }),
     // Account balances (key owned by useAccounts).
     queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+    // Goal balances (key owned by useGoals): incomes and expenses can move them.
+    queryClient.invalidateQueries({ queryKey: ["goals"] }),
     // Its income-stability assessment is computed from transactions.
     queryClient.invalidateQueries({ queryKey: financialProfileKeys.all }),
   ]);

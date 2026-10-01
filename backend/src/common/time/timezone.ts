@@ -23,3 +23,14 @@ export function currentYearMonth(
     month: Number(parts.find((part) => part.type === 'month')?.value),
   };
 }
+
+/** Today's calendar date ("YYYY-MM-DD") in `timezone`. */
+export function todayIso(timezone: string, now: Date = new Date()): string {
+  // en-CA formats dates as YYYY-MM-DD.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: safeTimezone(timezone),
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}

@@ -17,16 +17,15 @@ export class AccountController {
 
   @Put('setup') @HttpCode(HttpStatus.OK) @ApiOperation({ summary: 'Create or update account configuration' }) @ApiBody({ type: SetupAccountDto })
   async setup(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetupAccountDto) {
-    const config = await this.accountService.setupAccount(user.id, dto);
-    await this.accountService.seedDefaultSectors(user.id);
-    return config;
+    return this.accountService.setupAccount(user.id, dto);
   }
 
-  @Get('sectors') getSectors(@CurrentUser() user: AuthenticatedUser) { return this.accountService.getSectors(user.id); }
-  @Post('sectors') @HttpCode(HttpStatus.CREATED) @ApiBody({ type: UpsertSectorDto })
+  // Deprecated: sectors became goals. Remove in the next release.
+  @Get('sectors') @ApiOperation({ deprecated: true, summary: 'Deprecated: use /goals' }) getSectors(@CurrentUser() user: AuthenticatedUser) { return this.accountService.getSectors(user.id); }
+  @Post('sectors') @ApiOperation({ deprecated: true, summary: 'Deprecated: use /goals' }) @HttpCode(HttpStatus.CREATED) @ApiBody({ type: UpsertSectorDto })
   createSector(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpsertSectorDto) { return this.accountService.createSector(user.id, dto); }
-  @Patch('sectors/:id') @ApiParam({ name: 'id', description: 'Sector UUID' }) @ApiBody({ type: UpsertSectorDto })
+  @Patch('sectors/:id') @ApiOperation({ deprecated: true, summary: 'Deprecated: use /goals' }) @ApiParam({ name: 'id', description: 'Sector UUID' }) @ApiBody({ type: UpsertSectorDto })
   updateSector(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpsertSectorDto) { return this.accountService.updateSector(user.id, id, dto); }
-  @Delete('sectors/:id') @ApiParam({ name: 'id', description: 'Sector UUID' })
+  @Delete('sectors/:id') @ApiOperation({ deprecated: true, summary: 'Deprecated: use /goals' }) @ApiParam({ name: 'id', description: 'Sector UUID' })
   deleteSector(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) { return this.accountService.deleteSector(user.id, id); }
 }

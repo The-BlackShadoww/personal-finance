@@ -4,7 +4,7 @@ This plan covers every feature proposed in the product review (Tiers 1–3) and
 builds them so the app actively guides users through the evidence-based order of
 financial operations and the behavioural rules that make them stick.
 
-> **Status:** Phases 0–1 implemented; Phases 2–7 proposed · **Scope:** backend (NestJS + Drizzle) and frontend (Next.js)
+> **Status:** Phases 0–2 implemented; Phases 3–7 proposed · **Scope:** backend (NestJS + Drizzle) and frontend (Next.js)
 > · **Out of scope:** bank-feed integrations, multi-currency within one user,
 > ticker-level market prices.
 
@@ -292,6 +292,16 @@ Keep `account_config.initial_balance_cents` readable for one release, then drop.
 ---
 
 ## Phase 2 — Funded goals & sinking funds
+
+> **Done.** Migration `0007_phase2_goals` converted every savings sector into a goal with an
+> opening contribution equal to what the sector showed. Decisions made while building:
+> - Goals must live in an asset account. Adding money from another account, or income
+>   arriving in another account, creates a real transfer, so every earmark is backed by money.
+> - `fixed_monthly` goals are topped up from income in the same billing month (no scheduler yet;
+>   Phase 4 recurring rules will feed them on payday).
+> - Expenses can be paid from a goal atomically (`payFromGoalId`); editing or deleting the
+>   income/expense redoes or removes its goal effects. Goal-made transfers cannot be edited.
+> - `debt_payoff` goals are left to Phase 6. Sector endpoints are deprecated and stay one release.
 
 *Review items #2 and #13.* Replaces "% of balance" sectors with real, funded envelopes.
 

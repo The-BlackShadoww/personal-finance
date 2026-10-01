@@ -2,9 +2,9 @@
 
 import { Archive, ArrowCounterClockwise, PencilSimple, Plus, Trash, Warning } from "@phosphor-icons/react";
 import { motion, useReducedMotion } from "framer-motion";
+import Link from "next/link";
 import { useState } from "react";
 import { AccountForm } from "@/components/accounts/AccountForm";
-import { SectorAllocation } from "@/components/accounts/SectorAllocation";
 import { CategoryIcon } from "@/components/categories/IconPicker";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { PageHeader } from "@/components/layouts/PageHeader";
@@ -151,8 +151,19 @@ export default function AccountsPage() {
                   ) : null}
                 </div>
                 <div>
-                  <p className="num text-[28px] leading-none tracking-[-0.03em]">{formatCents(data.totals.liquidCents)}</p>
-                  <p className="mt-2 text-[12px] text-muted">Cash, bank, wallets and savings you can reach within days.</p>
+                  <p className="num text-[28px] leading-none tracking-[-0.03em]">
+                    {formatCents(summary?.availableCents ?? data.totals.liquidCents)}
+                  </p>
+                  <p className="mt-2 text-[12px] text-muted">
+                    Cash, bank, wallets and savings you can reach within days
+                    {summary && summary.earmarkedCents > 0 ? (
+                      <>
+                        , after <span className="num text-foreground">{formatCents(summary.earmarkedCents)}</span> set aside
+                        for <Link href="/goals" className="underline underline-offset-2">goals</Link>
+                      </>
+                    ) : null}
+                    .
+                  </p>
                 </div>
               </article>
             </StaggerItem>
@@ -190,15 +201,6 @@ export default function AccountsPage() {
             </label>
           </div>
 
-          {summary ? (
-            <section className="space-y-4">
-              <div className="px-1">
-                <h2 className="text-[15px]">Savings sectors</h2>
-                <p className="text-[13px] text-muted">Earmarks on your available balance.</p>
-              </div>
-              <SectorAllocation summary={summary} />
-            </section>
-          ) : null}
         </>
       )}
 

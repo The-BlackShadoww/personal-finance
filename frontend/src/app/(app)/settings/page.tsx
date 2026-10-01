@@ -25,7 +25,7 @@ const TABS: Array<{ id: Tab; label: string; description: string }> = [
   { id: "preferences", label: "Preferences", description: "Appearance, currency and timezone." },
   { id: "financial", label: "Financial profile", description: "A few answers that tailor targets and advice to your situation." },
   { id: "categories", label: "Categories", description: "The labels you sort transactions into." },
-  { id: "account", label: "Account", description: "Low-balance alert, default opening balance and savings sectors. Manage accounts on the Accounts page." },
+  { id: "account", label: "Account", description: "Low-balance alert and default opening balance. Accounts and goals have their own pages." },
 ];
 
 export default function SettingsPage() {

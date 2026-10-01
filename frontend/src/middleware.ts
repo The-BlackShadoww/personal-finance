@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const protectedRoutes = [
   "/dashboard",
   "/account",
+  "/goals",
   "/transactions",
   "/budgets",
   "/reports",
