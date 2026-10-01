@@ -67,7 +67,10 @@ function ReviewWizard({ review }: { review: MonthlyReview }) {
   const [action, setAction] = useState(review.completed?.action ?? "");
   const [result, setResult] = useState<Array<{ categoryId: string; name: string }> | null>(null);
 
-  useEffect(() => window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" }), [step, reduceMotion]);
+  // Braces matter: newer browsers return a Promise from scrollTo, which React would call as a cleanup.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+  }, [step, reduceMotion]);
 
   function finish() {
     complete.mutate(

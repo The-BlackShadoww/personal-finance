@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { LogoMark } from "@/components/brand/Logo";
@@ -35,7 +36,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <LogoMark className="h-3 w-3 [&>span]:h-1 [&>span]:w-1" />
             Personal Finance
           </span>
-          <span className="num">{new Date().getFullYear()}</span>
+          <span className="flex items-center gap-5">
+            <Link href="/guide" className="transition-colors hover:text-foreground">
+              Guide
+            </Link>
+            <span className="num">{new Date().getFullYear()}</span>
+          </span>
         </div>
       </footer>
     </div>
