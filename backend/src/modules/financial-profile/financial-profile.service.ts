@@ -46,6 +46,8 @@ export class FinancialProfileService {
       retirementAgeTarget: row?.retirementAgeTarget ?? null,
       safeWithdrawalBps: row?.safeWithdrawalBps ?? 400,
       expectedRealReturnBps: row?.expectedRealReturnBps ?? 500,
+      coolingOffThresholdCents: row?.coolingOffThresholdCents ?? null,
+      coolingOffHours: row?.coolingOffHours ?? 48,
       updatedAt: row?.updatedAt ?? null,
     };
 
@@ -72,6 +74,13 @@ export class FinancialProfileService {
       retirementAgeTarget: dto.retirementAgeTarget,
       safeWithdrawalBps: dto.safeWithdrawalBps,
       expectedRealReturnBps: dto.expectedRealReturnBps,
+      coolingOffThresholdCents:
+        dto.coolingOffThreshold === undefined
+          ? undefined
+          : dto.coolingOffThreshold === null
+            ? null
+            : Math.round(dto.coolingOffThreshold * 100),
+      coolingOffHours: dto.coolingOffHours,
     };
 
     await this.db

@@ -31,6 +31,8 @@ export function invalidateFinancialData(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: ["insights"] }),
     // Debts, investments and income (key owned by useWealth).
     queryClient.invalidateQueries({ queryKey: ["wealth"] }),
+    // Monthly review content and status (key owned by useHabits).
+    queryClient.invalidateQueries({ queryKey: ["reviews"] }),
     // Its income-stability assessment is computed from transactions.
     queryClient.invalidateQueries({ queryKey: financialProfileKeys.all }),
   ]);

@@ -1,8 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { MAX_AMOUNT } from '../../../common/money/money.constants';
 import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   Max,
   Min,
@@ -108,4 +110,29 @@ export class UpsertFinancialProfileDto {
   @Min(0)
   @Max(1000)
   expectedRealReturnBps?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Non-essential purchases at or above this amount (major units) are offered the cooling-off list. Null turns the rule off.',
+    example: 5000,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  @Max(MAX_AMOUNT)
+  coolingOffThreshold?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'How long an item waits on the cooling-off list, in hours (24 hours to 30 days).',
+    example: 48,
+    minimum: 24,
+    maximum: 720,
+  })
+  @unlessOmitted
+  @IsInt()
+  @Min(24)
+  @Max(720)
+  coolingOffHours?: number;
 }

@@ -7,6 +7,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -667,6 +668,12 @@ export const financialProfiles = pgTable('financial_profiles', {
   expectedRealReturnBps: integer('expected_real_return_bps')
     .notNull()
     .default(500),
+  // Non-essential purchases at or above this are offered the cooling-off
+  // list; null turns the rule off.
+  coolingOffThresholdCents: bigint('cooling_off_threshold_cents', {
+    mode: 'number',
+  }),
+  coolingOffHours: integer('cooling_off_hours').notNull().default(48),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -674,6 +681,78 @@ export const financialProfiles = pgTable('financial_profiles', {
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * A completed monthly review: what went well, what leaked, which spending
+ * was worth it, and the one thing to do next month.
+ */
+export const monthlyReviews = pgTable(
+  'monthly_reviews',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    year: integer('year').notNull(),
+    month: integer('month').notNull(),
+    // Generated when the review is completed; kept as they were shown.
+    wins: jsonb('wins').notNull().default([]),
+    leaks: jsonb('leaks').notNull().default([]),
+    // { [categoryId]: 'yes' | 'meh' | 'no' }
+    worthIt: jsonb('worth_it').notNull().default({}),
+    action: text('action'),
+    // Asked at the next review; null until answered.
+    actionDone: boolean('action_done'),
+    // The health score when the review was completed, to show change.
+    healthScore: integer('health_score'),
+    completedAt: timestamp('completed_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('monthly_reviews_user_period_idx').on(
+      table.userId,
+      table.year,
+      table.month,
+    ),
+  ],
+);
+
+export const wishlistDecisionEnum = pgEnum('wishlist_decision', [
+  'pending',
+  'bought',
+  'skipped',
+]);
+
+/** The cooling-off list: wants that wait before they are bought. */
+export const wishlistItems = pgTable(
+  'wishlist_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 120 }).notNull(),
+    amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+    url: text('url'),
+    categoryId: uuid('category_id').references(() => categories.id),
+    // The decision is asked for once this passes.
+    coolUntil: timestamp('cool_until', { withTimezone: true }).notNull(),
+    decision: wishlistDecisionEnum('decision').notNull().default('pending'),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    // The expense recorded when it was bought.
+    transactionId: uuid('transaction_id').references(() => transactions.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('wishlist_items_user_idx').on(table.userId, table.decision),
+    check('wishlist_items_amount_check', sql`${table.amountCents} > 0`),
+  ],
+);
 
 export const refreshTokens = pgTable(
   'refresh_tokens',

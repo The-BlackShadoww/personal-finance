@@ -85,6 +85,13 @@
       "when": 1790837825721,
       "tag": "0011_phase6_wealth",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790839388280,
+      "tag": "0012_phase7_habits",
+      "breakpoints": true
     }
   ]
 }

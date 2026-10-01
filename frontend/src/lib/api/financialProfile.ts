@@ -16,6 +16,10 @@ export interface FinancialProfile {
   safeWithdrawalBps: number;
   /** Basis points after inflation: 500 = 5%. */
   expectedRealReturnBps: number;
+  /** Non-essential purchases at or above this go to the cooling-off list; null = off. */
+  coolingOffThresholdCents: number | null;
+  /** Hours an item waits (24–720). */
+  coolingOffHours: number;
   updatedAt: string | null;
   /** Every question that changes advice has an answer. */
   isComplete: boolean;
@@ -39,7 +43,10 @@ export type UpdateFinancialProfilePayload = Partial<
     | "retirementAgeTarget"
   >
 > &
-  Partial<Pick<FinancialProfile, "safeWithdrawalBps" | "expectedRealReturnBps">>;
+  Partial<Pick<FinancialProfile, "safeWithdrawalBps" | "expectedRealReturnBps" | "coolingOffHours">> & {
+    /** Major units; null turns the cooling-off rule off. */
+    coolingOffThreshold?: number | null;
+  };
 
 export const financialProfileApi = {
   async get(): Promise<FinancialProfile> {

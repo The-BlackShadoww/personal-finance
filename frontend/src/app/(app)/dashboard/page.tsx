@@ -19,6 +19,7 @@ import { UpcomingPanel } from "@/components/dashboard/UpcomingPanel";
 import { Panel, PeriodStepper } from "@/components/dashboard/primitives";
 import { formatMoney } from "@/lib/utils/money";
 import { FinancialProfilePrompt } from "@/components/dashboard/FinancialProfilePrompt";
+import { HabitPrompts } from "@/components/habits/HabitPrompts";
 import { QuarterlyView } from "@/components/dashboard/QuarterlyView";
 import { YearlyView } from "@/components/dashboard/YearlyView";
 import { PageHeader } from "@/components/layouts/PageHeader";
@@ -73,6 +74,7 @@ export default function DashboardPage() {
       />
 
       <FinancialProfilePrompt />
+      <HabitPrompts />
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div

@@ -119,6 +119,24 @@ export class CalculationsService {
     };
   }
 
+  /** Income and spending in cents for each month in [start, end], zero-filled, oldest first. */
+  async getMonthlyTotals(userId: string, start: YearMonth, end: YearMonth) {
+    const totals = await this.getMonthTotals(userId, start, end);
+    const count = this.monthIndex(end) - this.monthIndex(start) + 1;
+    return Array.from({ length: Math.max(0, count) }, (_value, offset) => {
+      const index = this.monthIndex(start) + offset;
+      const year = Math.floor(index / 12);
+      const month = (index % 12) + 1;
+      const row = totals.get(this.periodKey(year, month)) ?? EMPTY_TOTALS;
+      return {
+        year,
+        month,
+        incomeCents: row.incomeCents,
+        expenseCents: row.expenseCents,
+      };
+    });
+  }
+
   /**
    * Everything the monthly dashboard renders, in one request: the selected
    * month, the year(s) its six-month trend spans, the category breakdown,

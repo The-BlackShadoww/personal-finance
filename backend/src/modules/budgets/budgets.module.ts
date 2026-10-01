@@ -8,5 +8,6 @@ import { PlanService } from './plan.service';
   imports: [CalculationsModule],
   controllers: [BudgetsController],
   providers: [BudgetsService, PlanService],
+  exports: [PlanService],
 })
 export class BudgetsModule {}

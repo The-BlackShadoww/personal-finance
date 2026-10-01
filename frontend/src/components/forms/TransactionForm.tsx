@@ -21,6 +21,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useAccountSummary } from "@/lib/hooks/useAccount";
 import { useAccounts } from "@/lib/hooks/useAccounts";
 import { useGoals } from "@/lib/hooks/useGoals";
+import { useAddWishlistItem, useWishlist } from "@/lib/hooks/useHabits";
 import { invalidateFinancialData } from "@/lib/hooks/invalidateFinancialData";
 import { formatCents, formatMoney } from "@/lib/utils/money";
 
@@ -57,8 +58,12 @@ type TransactionFormValues = z.infer<typeof transactionSchema>;
 
 type TransactionFormProps = {
   transaction?: Transaction | null;
+  /** Starting values for a new expense, e.g. buying an item from the cooling-off list. */
+  prefill?: { amount: number; categoryId?: string | null; note?: string };
   onSuccess: () => void;
   onCancel: () => void;
+  /** Called with the new entry after it is created. */
+  onCreated?: (created: CreatedTransaction) => void;
 };
 
 const MONTHS = [
@@ -115,7 +120,7 @@ function liquidDelta(type: TransactionType, amountCents: number, from?: Account,
   return (isLiquid(to) ? amountCents : 0) - (isLiquid(from) ? amountCents : 0);
 }
 
-export function TransactionForm({ transaction, onSuccess, onCancel }: TransactionFormProps) {
+export function TransactionForm({ transaction, prefill, onSuccess, onCancel, onCreated }: TransactionFormProps) {
   const toast = useToast();
   const { data: categories = [], isLoading: categoriesLoading } = useCategories();
   // Archived accounts stay listed so an entry recorded in one can be edited.
@@ -128,6 +133,8 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
   const queryClient = useQueryClient();
   const { data: goalsData } = useGoals();
   const [payFromGoal, setPayFromGoal] = useState(true);
+  const { data: wishlist } = useWishlist();
+  const addToWishlist = useAddWishlistItem();
 
   const {
     register,
@@ -169,6 +176,17 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
           (goal) => goal.categoryId === categoryId && goal.archivedAt === null && goal.balanceCents > 0,
         )
       : undefined;
+  // The cooling-off rule: a want at or above the threshold can wait instead.
+  const selectedCategory = categories.find((category) => category.id === categoryId);
+  const coolingOff = wishlist?.settings;
+  const offerCoolingOff =
+    !isEditing &&
+    !prefill &&
+    selectedType === "expense" &&
+    coolingOff?.thresholdCents != null &&
+    selectedCategory !== undefined &&
+    !selectedCategory.essential &&
+    Math.round(amountValue * 100) >= coolingOff.thresholdCents;
   const fromAccount = accounts.find((account) => account.id === accountId);
   const toAccount = accounts.find((account) => account.id === counterAccountId);
   const submitting = createTransaction.isPending || updateTransaction.isPending;
@@ -186,10 +204,20 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
           date: toDateInputValue(transaction.date),
           note: transaction.note ?? "",
         }
-      : defaultValues;
+      : prefill
+        ? {
+            ...defaultValues,
+            type: "expense",
+            amount: prefill.amount,
+            categoryId: prefill.categoryId ?? "",
+            note: prefill.note ?? "",
+          }
+        : defaultValues;
 
     reset(values);
     setAmountDisplay(formatAmount(values.amount));
+    // Only on open: prefill is an object recreated by the parent each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reset, transaction]);
 
   // New entries start in the last-used account, else the default one.
@@ -254,9 +282,25 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
       onSuccess: (created) => {
         rememberAccountId(values.accountId);
         announce(created);
+        onCreated?.(created);
         onSuccess();
       },
     });
+  }
+
+  function coolOff() {
+    if (!selectedCategory) return;
+    const name = note.trim() || selectedCategory.name;
+    addToWishlist.mutate(
+      { name: name.slice(0, 120), amount: amountValue, categoryId: selectedCategory.id },
+      {
+        onSuccess: () => {
+          toast.success(`${name} is on your cooling-off list. Decide once the wait is over.`);
+          onSuccess();
+        },
+        onError: (error) => toast.error(error instanceof Error ? error.message : "Could not add it to the list."),
+      },
+    );
   }
 
   /** Confirms the entry, including what goals did because of it. */
@@ -431,6 +475,20 @@ export function TransactionForm({ transaction, onSuccess, onCancel }: Transactio
               ))}
             </select>
             {errors.categoryId ? <FieldError message={errors.categoryId.message} /> : null}
+            {offerCoolingOff && coolingOff ? (
+              <div className="mt-2 rounded-[8px] bg-surface-2 px-3 py-2.5 text-[12px] text-muted">
+                A want above your {formatCents(coolingOff.thresholdCents ?? 0, 0)} cooling-off limit. Wait{" "}
+                {coolingOff.hours % 24 === 0 ? `${coolingOff.hours / 24} days` : `${coolingOff.hours} hours`} first?
+                <button
+                  type="button"
+                  onClick={coolOff}
+                  disabled={addToWishlist.isPending}
+                  className="mt-1 block text-foreground underline underline-offset-4 hover:opacity-70 disabled:opacity-50"
+                >
+                  Add to your cooling-off list instead
+                </button>
+              </div>
+            ) : null}
             {fundingGoal ? (
               <label className="mt-2 flex items-start gap-2 text-[12px] text-foreground">
                 <input

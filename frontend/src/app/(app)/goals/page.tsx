@@ -16,6 +16,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { CategoryIcon } from "@/components/categories/IconPicker";
 import { GoalForm } from "@/components/goals/GoalForm";
 import { GoalMoneyForm, type GoalMoneyAction } from "@/components/goals/GoalMoneyForm";
+import { CoolingOffPanel } from "@/components/habits/CoolingOffPanel";
 import { PageHeader } from "@/components/layouts/PageHeader";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { Button } from "@/components/ui/Button";
@@ -298,6 +299,10 @@ export default function GoalsPage() {
               </div>
             )}
           </section>
+
+          <Reveal>
+            <CoolingOffPanel />
+          </Reveal>
         </>
       )}
 

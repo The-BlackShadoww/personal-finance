@@ -6,6 +6,7 @@ import { Suspense, useMemo, useState } from "react";
 import { AreaChart } from "@/components/charts/AreaChart";
 import { ChartEmpty, Legend } from "@/components/charts/core";
 import { ErrorNote, Panel, StatTile } from "@/components/dashboard/primitives";
+import { ReviewLink } from "@/components/habits/HabitPrompts";
 import { HealthBreakdown } from "@/components/insights/HealthBreakdown";
 import { NextActionCard } from "@/components/insights/NextActionCard";
 import { SpendingInsightList } from "@/components/insights/SpendingInsightList";
@@ -95,6 +96,7 @@ function HealthTab() {
   return (
     <div className="space-y-10">
       {isError ? <ErrorNote>{error instanceof Error ? error.message : "Could not load insights."}</ErrorNote> : null}
+      <ReviewLink />
 
       <Stagger className="grid gap-3 lg:grid-cols-12">
         <StaggerItem className="lg:col-span-5">

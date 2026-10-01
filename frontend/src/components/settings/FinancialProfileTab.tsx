@@ -17,6 +17,9 @@ type Answers = {
   retirementAgeTarget: number | null;
   safeWithdrawalPercent: number;
   expectedRealReturnPercent: number;
+  /** Major units as typed; empty = off. */
+  coolingOffThreshold: string;
+  coolingOffHours: number;
 };
 
 function toAnswers(profile: FinancialProfile): Answers {
@@ -29,11 +32,21 @@ function toAnswers(profile: FinancialProfile): Answers {
     retirementAgeTarget: profile.retirementAgeTarget,
     safeWithdrawalPercent: profile.safeWithdrawalBps / 100,
     expectedRealReturnPercent: profile.expectedRealReturnBps / 100,
+    coolingOffThreshold: profile.coolingOffThresholdCents === null ? "" : String(profile.coolingOffThresholdCents / 100),
+    coolingOffHours: profile.coolingOffHours,
   };
 }
 
 const WITHDRAWAL_RATES = [3, 3.25, 3.5, 3.75, 4, 4.5, 5];
 const REAL_RETURNS = [2, 3, 4, 5, 6, 7, 8];
+const COOLING_HOURS = [
+  { value: 24, label: "1 day" },
+  { value: 48, label: "2 days" },
+  { value: 72, label: "3 days" },
+  { value: 168, label: "1 week" },
+  { value: 336, label: "2 weeks" },
+  { value: 720, label: "30 days" },
+];
 
 /** Keeps a value saved outside the preset list selectable. */
 function withCurrent(options: number[], current: number) {
@@ -99,6 +112,12 @@ export function FinancialProfileTab() {
         }
       : null;
 
+  const parsedThreshold = Number(answers.coolingOffThreshold.replace(/,/g, ""));
+  const coolingOffThreshold =
+    answers.coolingOffThreshold.trim() === "" || !Number.isFinite(parsedThreshold) || parsedThreshold <= 0
+      ? null
+      : Math.round(parsedThreshold * 100) / 100;
+
   async function save() {
     if (!answers) return;
     setSaved(false);
@@ -112,6 +131,8 @@ export function FinancialProfileTab() {
       retirementAgeTarget: answers.retirementAgeTarget,
       safeWithdrawalBps: Math.round(answers.safeWithdrawalPercent * 100),
       expectedRealReturnBps: Math.round(answers.expectedRealReturnPercent * 100),
+      coolingOffThreshold: coolingOffThreshold,
+      coolingOffHours: answers.coolingOffHours,
     });
     setSaved(true);
   }
@@ -282,6 +303,47 @@ export function FinancialProfileTab() {
           </label>
         </div>
       </details>
+
+      <Question
+        title="Cooling-off rule"
+        why="Waiting before a non-essential purchase lets the urge pass. Skipped buys add up."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="label">
+              For wants costing at least <span className="text-faint">empty = off</span>
+            </span>
+            <input
+              className="field num"
+              inputMode="decimal"
+              value={answers.coolingOffThreshold}
+              onChange={(event) => set("coolingOffThreshold", event.target.value.replace(/[^\d.,]/g, ""))}
+            />
+          </label>
+          <label className="block">
+            <span className="label">Wait</span>
+            <select
+              className="field"
+              value={answers.coolingOffHours}
+              onChange={(event) => set("coolingOffHours", Number(event.target.value))}
+            >
+              {COOLING_HOURS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+              {COOLING_HOURS.some((option) => option.value === answers.coolingOffHours) ? null : (
+                <option value={answers.coolingOffHours}>{answers.coolingOffHours} hours</option>
+              )}
+            </select>
+          </label>
+        </div>
+        <p className="mt-2 text-[12px] text-muted">
+          {coolingOffThreshold === null
+            ? "Off. You can still add things to the cooling-off list on the Goals page."
+            : "When you record a non-essential expense at or above this, you'll be offered the cooling-off list instead."}
+        </p>
+      </Question>
 
       <div className="space-y-4">
         <Notice show={Boolean(update.error)} tone="error">

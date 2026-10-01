@@ -22,6 +22,8 @@ import { FinancialProfileModule } from './modules/financial-profile/financial-pr
 import { GoalsModule } from './modules/goals/goals.module';
 import { InsightsModule } from './modules/insights/insights.module';
 import { WealthModule } from './modules/wealth/wealth.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { WishlistModule } from './modules/wishlist/wishlist.module';
 import { RecurringModule } from './modules/recurring/recurring.module';
 import { HealthModule } from './modules/health/health.module';
 
@@ -84,6 +86,8 @@ import { HealthModule } from './modules/health/health.module';
     RecurringModule,
     InsightsModule,
     WealthModule,
+    ReviewsModule,
+    WishlistModule,
     HealthModule,
   ],
   providers: [

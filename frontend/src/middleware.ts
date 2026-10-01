@@ -6,6 +6,8 @@ const protectedRoutes = [
   "/goals",
   "/transactions",
   "/budgets",
+  "/insights",
+  "/review",
   "/reports",
   "/settings",
 ];

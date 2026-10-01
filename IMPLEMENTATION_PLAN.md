@@ -4,7 +4,7 @@ This plan covers every feature proposed in the product review (Tiers 1–3) and
 builds them so the app actively guides users through the evidence-based order of
 financial operations and the behavioural rules that make them stick.
 
-> **Status:** Phases 0–6 implemented; Phase 7 proposed · **Scope:** backend (NestJS + Drizzle) and frontend (Next.js)
+> **Status:** Phases 0–7 implemented · **Scope:** backend (NestJS + Drizzle) and frontend (Next.js)
 > · **Out of scope:** bank-feed integrations, multi-currency within one user,
 > ticker-level market prices.
 
@@ -697,6 +697,21 @@ MVP without market-price APIs (privacy, cost, reliability):
 ---
 
 ## Phase 7 — Habits
+
+> **Done.** Migration `0012_phase7_habits` (`monthly_reviews`, `wishlist_items`, and the
+> cooling-off settings on `financial_profiles`). Differences from the sketch below:
+> - A review row exists only once completed; wins and leaks are generated on request and frozen
+>   when it is saved. The health score is saved with each review so the next one shows the change
+>   (there is no score history before the first review). The review has five steps — numbers,
+>   wins, leaks, "worth it?", one thing — on its own page (`/review`); the dashboard prompt is
+>   dismissed per viewer, and Insights links back to it. A "no" given in an earlier review too
+>   returns those categories as candidates for a lower budget.
+> - "Goal milestones" in wins are money set aside for goals that month; "debt paid" and
+>   "invested" come from transfers. Leaks are overspends, drift (> 25% over the 3-month average and
+>   > 5% of income), subscriptions added that month and lifestyle creep.
+> - The cooling-off settings (threshold, 24 hours–30 days) live in the financial profile. Buying
+>   is refused until the wait is over; skipping is allowed any time. The cooling-off list is a
+>   section of the Goals page; skipped items can be set aside for a goal one at a time.
 
 *Review item #14 plus behavioural rules B2, B3, W9.*
 
