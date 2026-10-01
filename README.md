@@ -16,6 +16,7 @@ A modern, full-stack personal finance application for tracking income and expens
 
 **Financial data**
 - **Transactions** — Create, read, update, and delete income, expense and transfer entries with dates, notes, categories and accounts. Transfers move money between your own accounts (into savings, investments or onto a card) and never count as income or spending
+- **Recurring** — Salary, bills, subscriptions and regular transfers ("invest every payday", debt payments) on weekly to yearly schedules with month-end clamping. Automatic rules are recorded when due — a recorded salary shares itself out to income-funded goals — and the rest wait under Due to be confirmed (with the actual amount) or skipped. Billing-month offset for rent paid in arrears; "Make recurring" from any entry; subscription totals per month and year; a "Coming up" panel on the dashboard
 - **Categories** — Custom income and expense categories with colors and icons (managed in Settings). Expense categories are marked need/want and fixed/variable and can count toward ratios such as housing or debt interest; income categories are marked active, passive or portfolio
 - **Spending plan** — A monthly plan ordered the way money should flow: pay yourself first (goal funding and other saving), then needs, then wants. Expected income suggested from the last 3 months; 50/30/20, 70/20/10, zero-based or caps-only methods with targets; per-category budgets with rollover, 3-month averages and median suggestions; copy last month; move budget between categories when one runs over
 - **Accounts** — Bank, cash, mobile wallet, savings, investment, retirement and property assets plus credit cards and loans, with balances, a six-month trend, net worth and money available to spend. Archive (zero balance) or delete (unused) accounts
@@ -42,7 +43,7 @@ A modern, full-stack personal finance application for tracking income and expens
 
 ### Planned / in progress
 
-- **Roadmap** — Recurring transactions, financial-health insights, wealth-building tools and monthly reviews; see [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)
+- **Roadmap** — Financial-health insights, wealth-building tools and monthly reviews; see [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)
 - Additional polish, tests, and production hardening
 
 ---

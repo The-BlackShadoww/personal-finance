@@ -8,13 +8,17 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/types/authenticated-user.interface';
+import { RecurringService } from '../recurring/recurring.service';
 import { CalculationsService } from './calculations.service';
 
 @ApiTags('Calculations')
 @ApiBearerAuth('access-token')
 @Controller('calculations')
 export class CalculationsController {
-  constructor(private readonly calculationsService: CalculationsService) {}
+  constructor(
+    private readonly calculationsService: CalculationsService,
+    private readonly recurringService: RecurringService,
+  ) {}
 
   @ApiOperation({
     summary: 'Get monthly financial summary',
@@ -109,11 +113,13 @@ export class CalculationsController {
   @ApiQuery({ name: 'month', required: true, example: 1 })
   @ApiResponse({ status: 200, description: 'Dashboard overview' })
   @Get('dashboard')
-  getDashboardOverview(
+  async getDashboardOverview(
     @CurrentUser() user: AuthenticatedUser,
     @Query('year', ParseIntPipe) year: number,
     @Query('month', ParseIntPipe) month: number,
   ) {
+    // Opening the dashboard posts due recurring entries (salary, bills) first.
+    await this.recurringService.materializeDue(user.id, user.timezone);
     return this.calculationsService.getDashboardOverview(user.id, year, month);
   }
 

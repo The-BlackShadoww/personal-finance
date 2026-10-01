@@ -49,6 +49,8 @@ export type Transaction = {
   transactionMonth: number;
   transactionYear: number;
   note?: string | null;
+  /** Set when a recurring rule posted this entry. */
+  recurringRuleId?: string | null;
   category: TransactionCategory | null;
   account: TransactionAccount;
   counterAccount: TransactionAccount | null;

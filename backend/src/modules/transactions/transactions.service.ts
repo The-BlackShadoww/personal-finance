@@ -24,6 +24,10 @@ import { AccountService } from '../account/account.service';
 import { AccountsService } from '../accounts/accounts.service';
 import { GoalsService, type LedgerEntry } from '../goals/goals.service';
 import {
+  LedgerValidator,
+  type EntryShape,
+} from '../ledger/ledger-validator.service';
+import {
   CreateTransactionDto,
   TransactionType,
 } from './dto/create-transaction.dto';
@@ -32,14 +36,6 @@ import { UpdateTransactionDto } from './dto/update-transaction.dto';
 
 const counterAccounts = alias(accounts, 'counter_account');
 
-/** The fields that decide what a transaction is and where its money moves. */
-type TransactionShape = {
-  type: 'income' | 'expense' | 'transfer';
-  accountId: string;
-  counterAccountId: string | null;
-  categoryId: string | null;
-};
-
 @Injectable()
 export class TransactionsService {
   constructor(
@@ -47,6 +43,7 @@ export class TransactionsService {
     private readonly accountService: AccountService,
     private readonly accountsService: AccountsService,
     private readonly goalsService: GoalsService,
+    private readonly ledgerValidator: LedgerValidator,
   ) {}
 
   /**
@@ -122,7 +119,7 @@ export class TransactionsService {
       dto.accountId ??
       (await this.accountsService.getDefaultAccount(userId)).id;
 
-    await this.assertValidShape(userId, {
+    await this.ledgerValidator.assertValidShape(userId, {
       type: dto.type,
       accountId,
       counterAccountId: dto.counterAccountId ?? null,
@@ -177,13 +174,13 @@ export class TransactionsService {
     dto: UpdateTransactionDto,
   ) {
     const existing = await this.findOne(userId, transactionId);
-    const type: TransactionShape['type'] = dto.type ?? existing.type;
+    const type: EntryShape['type'] = dto.type ?? existing.type;
     const typeChanged = type !== existing.type;
     const isTransfer = type === 'transfer';
 
     // Fields that do not apply to the new type are cleared; fields that
     // still apply carry over unless the type family changed.
-    const shape: TransactionShape = {
+    const shape: EntryShape = {
       type,
       accountId: dto.accountId ?? existing.accountId,
       counterAccountId: isTransfer
@@ -194,7 +191,7 @@ export class TransactionsService {
         : (dto.categoryId ?? (typeChanged ? null : existing.categoryId)),
     };
 
-    await this.assertValidShape(userId, shape, {
+    await this.ledgerValidator.assertValidShape(userId, shape, {
       // Entries may stay on an account archived after they were recorded.
       unchangedAccountIds: [
         existing.accountId,
@@ -339,65 +336,6 @@ export class TransactionsService {
       );
   }
 
-  /**
-   * Income/expense need a matching category and no destination; transfers
-   * need two different accounts and no category. New or changed accounts
-   * must be active.
-   */
-  private async assertValidShape(
-    userId: string,
-    shape: TransactionShape,
-    { unchangedAccountIds = [] }: { unchangedAccountIds?: string[] } = {},
-  ) {
-    const checkAccount = (accountId: string) =>
-      unchangedAccountIds.includes(accountId)
-        ? this.accountsService.findOwned(userId, accountId)
-        : this.accountsService.findActive(userId, accountId);
-
-    if (shape.type === 'transfer') {
-      if (shape.categoryId) {
-        throw new BadRequestException('Transfers do not have a category');
-      }
-      if (!shape.counterAccountId) {
-        throw new BadRequestException(
-          'Choose the account the money is moving to',
-        );
-      }
-      if (shape.counterAccountId === shape.accountId) {
-        throw new BadRequestException(
-          'A transfer needs two different accounts',
-        );
-      }
-      await Promise.all([
-        checkAccount(shape.accountId),
-        checkAccount(shape.counterAccountId),
-      ]);
-      return;
-    }
-
-    if (shape.counterAccountId) {
-      throw new BadRequestException(
-        'Only transfers have a destination account',
-      );
-    }
-    if (!shape.categoryId) {
-      throw new BadRequestException('Choose a category');
-    }
-
-    const [category] = await Promise.all([
-      this.findOwnedCategory(userId, shape.categoryId),
-      checkAccount(shape.accountId),
-    ]);
-    if (!category) {
-      throw new NotFoundException('Category not found');
-    }
-    if (category.type !== shape.type) {
-      throw new BadRequestException(
-        'Transaction type must match category type',
-      );
-    }
-  }
-
   private selectWithRelations() {
     return this.db
       .select({
@@ -412,6 +350,8 @@ export class TransactionsService {
         transactionMonth: transactions.transactionMonth,
         transactionYear: transactions.transactionYear,
         note: transactions.note,
+        // Set when a recurring rule posted this entry.
+        recurringRuleId: transactions.recurringRuleId,
         createdAt: transactions.createdAt,
         updatedAt: transactions.updatedAt,
         deletedAt: transactions.deletedAt,
@@ -507,21 +447,5 @@ export class TransactionsService {
       .limit(1);
 
     return transaction;
-  }
-
-  private async findOwnedCategory(userId: string, categoryId: string) {
-    const [category] = await this.db
-      .select()
-      .from(categories)
-      .where(
-        and(
-          eq(categories.id, categoryId),
-          eq(categories.userId, userId),
-          isNull(categories.deletedAt),
-        ),
-      )
-      .limit(1);
-
-    return category;
   }
 }

@@ -25,6 +25,8 @@ export function invalidateFinancialData(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: ["goals"] }),
     // Spending plans show spending and goal funding (key owned by useBudgets).
     queryClient.invalidateQueries({ queryKey: ["budgets"] }),
+    // Recurring rules and their next dates (key owned by useRecurring).
+    queryClient.invalidateQueries({ queryKey: ["recurring"] }),
     // Its income-stability assessment is computed from transactions.
     queryClient.invalidateQueries({ queryKey: financialProfileKeys.all }),
   ]);

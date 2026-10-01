@@ -164,6 +164,13 @@ export const transactions = pgTable(
     transactionMonth: integer('transaction_month').notNull().default(0),
     transactionYear: integer('transaction_year').notNull().default(0),
     note: text('note'),
+    // Set when a recurring rule posted this entry. Deleting the entry keeps
+    // the slot taken, so the occurrence counts as skipped, not re-posted.
+    recurringRuleId: uuid('recurring_rule_id').references(
+      () => recurringRules.id,
+      { onDelete: 'set null' },
+    ),
+    occurrenceDate: date('occurrence_date', { mode: 'string' }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -173,6 +180,9 @@ export const transactions = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
+    uniqueIndex('transactions_recurring_occurrence_idx')
+      .on(table.recurringRuleId, table.occurrenceDate)
+      .where(sql`${table.recurringRuleId} IS NOT NULL`),
     index('transactions_user_id_idx').on(table.userId),
     index('transactions_user_id_date_idx').on(table.userId, table.date),
     index('transactions_period_idx').on(
@@ -205,6 +215,71 @@ export const transactions = pgTable(
       sql`${table.counterAccountId} IS DISTINCT FROM ${table.accountId}`,
     ),
     check('transactions_amount_positive_check', sql`${table.amountCents} > 0`),
+  ],
+);
+
+export const recurringFrequencyEnum = pgEnum('recurring_frequency', [
+  'weekly',
+  'biweekly',
+  'monthly',
+  'quarterly',
+  'yearly',
+]);
+
+/**
+ * A template that posts an entry on a schedule: salary, rent, a
+ * subscription, "invest every payday". Occurrences fall on the anchor date's
+ * weekday (weekly/biweekly) or day of month, clamped to shorter months.
+ */
+export const recurringRules = pgTable(
+  'recurring_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 100 }).notNull(),
+    type: transactionTypeEnum('type').notNull(),
+    amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    counterAccountId: uuid('counter_account_id').references(() => accounts.id),
+    categoryId: uuid('category_id').references(() => categories.id),
+    note: text('note'),
+    frequency: recurringFrequencyEnum('frequency').notNull(),
+    // The first occurrence; later ones follow from it.
+    anchorDate: date('anchor_date', { mode: 'string' }).notNull(),
+    endDate: date('end_date', { mode: 'string' }),
+    // The next occurrence not yet posted or skipped.
+    nextDueDate: date('next_due_date', { mode: 'string' }),
+    // Which billing month an occurrence counts toward, relative to its
+    // date: -1 (rent paid on the 1st for last month) to +1.
+    periodOffsetMonths: integer('period_offset_months').notNull().default(0),
+    // Post automatically when due; otherwise wait for confirmation.
+    autoPost: boolean('auto_post').notNull().default(false),
+    isSubscription: boolean('is_subscription').notNull().default(false),
+    pausedAt: timestamp('paused_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('recurring_rules_user_due_idx').on(table.userId, table.nextDueDate),
+    check(
+      'recurring_rules_transfer_shape_check',
+      sql`CASE WHEN ${table.type}::text = 'transfer'
+        THEN ${table.counterAccountId} IS NOT NULL AND ${table.categoryId} IS NULL
+        ELSE ${table.counterAccountId} IS NULL AND ${table.categoryId} IS NOT NULL END`,
+    ),
+    check('recurring_rules_amount_positive_check', sql`${table.amountCents} > 0`),
+    check(
+      'recurring_rules_period_offset_check',
+      sql`${table.periodOffsetMonths} BETWEEN -1 AND 1`,
+    ),
   ],
 );
 

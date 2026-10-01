@@ -4,7 +4,7 @@ This plan covers every feature proposed in the product review (Tiers 1–3) and
 builds them so the app actively guides users through the evidence-based order of
 financial operations and the behavioural rules that make them stick.
 
-> **Status:** Phases 0–3 implemented; Phases 4–7 proposed · **Scope:** backend (NestJS + Drizzle) and frontend (Next.js)
+> **Status:** Phases 0–4 implemented; Phases 5–7 proposed · **Scope:** backend (NestJS + Drizzle) and frontend (Next.js)
 > · **Out of scope:** bank-feed integrations, multi-currency within one user,
 > ticker-level market prices.
 
@@ -448,6 +448,14 @@ Left to assign                                 ৳ 0      ✓ zero-based
 ---
 
 ## Phase 4 — Recurring transactions & automation
+
+> **Done.** Migration `0009_phase4_recurring`. Differences from the sketch below: no
+> `interval`/`day_of_month` columns (the anchor date sets the day, clamped to short months;
+> "biweekly" covers 2-week cycles); an added `period_offset_months` (−1…+1) so rent paid on
+> the 1st counts toward the previous month; due rules are posted lazily from the dashboard,
+> ledger and recurring endpoints (throttled to once per 5 minutes per user, reset when a rule
+> changes); past occurrences are never back-filled; "upcoming" runs to the same date next month
+> so monthly items always appear. Shape validation now lives in a shared `LedgerValidator`.
 
 *Review item #4.*
 

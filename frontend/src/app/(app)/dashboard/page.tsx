@@ -12,6 +12,7 @@ import { DonutChart } from "@/components/charts/DonutChart";
 import { Gauge } from "@/components/charts/Gauge";
 import { AccountBalanceWidget } from "@/components/dashboard/AccountBalanceWidget";
 import { PeriodSummaryCards } from "@/components/dashboard/PeriodSummaryCards";
+import { UpcomingPanel } from "@/components/dashboard/UpcomingPanel";
 import { Panel, PeriodStepper } from "@/components/dashboard/primitives";
 import { formatMoney } from "@/lib/utils/money";
 import { FinancialProfilePrompt } from "@/components/dashboard/FinancialProfilePrompt";
@@ -343,6 +344,10 @@ function MonthlyView() {
           </Panel>
         </Reveal>
       </div>
+
+      <Reveal>
+        <UpcomingPanel />
+      </Reveal>
     </div>
   );
 }

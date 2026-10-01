@@ -1,11 +1,17 @@
 "use client";
 
-import { ArrowsLeftRight, CaretLeft, CaretRight, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { ArrowsClockwise, ArrowsLeftRight, CaretLeft, CaretRight, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import { CategoryIcon } from "@/components/categories/IconPicker";
 import { TransactionForm } from "@/components/forms/TransactionForm";
+import { RecurringForm } from "@/components/recurring/RecurringForm";
+import { RecurringPanel } from "@/components/recurring/RecurringPanel";
+import { useToast } from "@/components/ui/Toast";
+import type { RecurringPayload, RecurringRule } from "@/lib/api/recurring";
+import { useCategories } from "@/lib/hooks/useCategories";
+import { useCreateRecurring, useUpdateRecurring } from "@/lib/hooks/useRecurring";
 import { PageHeader } from "@/components/layouts/PageHeader";
 import { Reveal } from "@/components/motion/Reveal";
 import { Button } from "@/components/ui/Button";
@@ -37,6 +43,61 @@ export default function TransactionsPage() {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const reduceMotion = useReducedMotion();
+  const toast = useToast();
+  const { data: allCategories = [] } = useCategories();
+  const createRecurring = useCreateRecurring();
+  const updateRecurring = useUpdateRecurring();
+  // The view lives in the URL (?tab=recurring) so links can open it.
+  const [view, setView] = useState<"ledger" | "recurring">("ledger");
+  const [ruleForm, setRuleForm] = useState<{ rule?: RecurringRule; initial?: Partial<RecurringPayload> } | null>(null);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "recurring") setView("recurring");
+  }, []);
+
+  function selectView(next: "ledger" | "recurring") {
+    setView(next);
+    const url = new URL(window.location.href);
+    if (next === "recurring") url.searchParams.set("tab", "recurring");
+    else url.searchParams.delete("tab");
+    window.history.replaceState(window.history.state, "", url);
+  }
+
+  function makeRecurring(transaction: Transaction) {
+    setRuleForm({
+      initial: {
+        name: transaction.note || transaction.category?.name || "Recurring",
+        type: transaction.type,
+        amount: transaction.amountCents / 100,
+        accountId: transaction.accountId,
+        counterAccountId: transaction.counterAccountId ?? undefined,
+        categoryId: transaction.categoryId ?? undefined,
+        frequency: "monthly",
+        anchorDate: new Date(transaction.date).toISOString().slice(0, 10),
+        fromTransactionId: transaction.id,
+      },
+    });
+  }
+
+  function closeRuleForm() {
+    setRuleForm(null);
+    createRecurring.reset();
+    updateRecurring.reset();
+  }
+
+  function submitRule(payload: RecurringPayload) {
+    const done = (message: string) => () => {
+      toast.success(message);
+      closeRuleForm();
+    };
+    if (ruleForm?.rule) {
+      updateRecurring.mutate({ id: ruleForm.rule.id, payload }, { onSuccess: done("Recurring rule saved.") });
+    } else {
+      createRecurring.mutate(payload, {
+        onSuccess: done(payload.fromTransactionId ? "Made recurring." : "Recurring rule created."),
+      });
+    }
+  }
 
   const filters = useMemo<TransactionFilters>(
     () => ({
@@ -128,15 +189,36 @@ export default function TransactionsPage() {
       <PageHeader
         eyebrow="Transactions"
         title="Every entry, in one ledger."
-        aside="Filter by time, type, or category."
+        aside={view === "ledger" ? "Filter by time, type, or category." : "Salary, bills, subscriptions and regular saving — recorded on schedule."}
         actions={
-          <Button onClick={openAddModal}>
-            <Plus size={14} weight="bold" aria-hidden="true" />
-            Add transaction
-          </Button>
+          view === "ledger" ? (
+            <Button onClick={openAddModal}>
+              <Plus size={14} weight="bold" aria-hidden="true" />
+              Add transaction
+            </Button>
+          ) : (
+            <Button onClick={() => setRuleForm({})}>
+              <Plus size={14} weight="bold" aria-hidden="true" />
+              New recurring
+            </Button>
+          )
         }
       />
 
+      <SegmentedControl
+        label="Transactions view"
+        value={view}
+        onChange={selectView}
+        options={[
+          { value: "ledger", label: "Ledger" },
+          { value: "recurring", label: "Recurring" },
+        ]}
+      />
+
+      {view === "recurring" ? (
+        <RecurringPanel onNew={() => setRuleForm({})} onEdit={(rule) => setRuleForm({ rule })} />
+      ) : (
+      <>
       <Reveal>
         <section className="card p-5 md:p-6" aria-label="Filters">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -358,10 +440,22 @@ export default function TransactionsPage() {
                           transaction.type === "transfer" && "bg-surface-3 text-muted",
                         )}
                       >
+                        {transaction.recurringRuleId ? "recurring " : ""}
                         {transaction.type}
                       </span>
                     </span>
                     <span className="col-span-2 flex justify-end gap-1 md:col-span-1 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+                      {!transaction.recurringRuleId ? (
+                        <button
+                          type="button"
+                          aria-label="Make recurring"
+                          title="Make recurring"
+                          className="grid h-8 w-8 place-items-center rounded-[6px] text-muted transition-colors hover:bg-surface hover:text-foreground"
+                          onClick={() => makeRecurring(transaction)}
+                        >
+                          <ArrowsClockwise size={14} weight="bold" aria-hidden="true" />
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         aria-label="Edit transaction"
@@ -407,6 +501,30 @@ export default function TransactionsPage() {
           </div>
         </div>
       </section>
+
+      </>
+      )}
+
+      <Modal
+        open={ruleForm !== null}
+        title={ruleForm?.rule ? "Edit recurring" : ruleForm?.initial ? "Make recurring" : "New recurring"}
+        description={ruleForm?.initial ? "This entry becomes the first one; the next is recorded on schedule." : undefined}
+        onClose={closeRuleForm}
+      >
+        {ruleForm ? (
+          <RecurringForm
+            key={ruleForm.rule?.id ?? ruleForm.initial?.fromTransactionId ?? "new"}
+            rule={ruleForm.rule}
+            initial={ruleForm.initial}
+            accounts={accountsData?.accounts ?? []}
+            categories={allCategories}
+            submitting={createRecurring.isPending || updateRecurring.isPending}
+            error={((ruleForm.rule ? updateRecurring.error : createRecurring.error) as Error | null)?.message ?? null}
+            onSubmit={submitRule}
+            onCancel={closeRuleForm}
+          />
+        ) : null}
+      </Modal>
 
       <Modal
         open={isFormModalOpen}

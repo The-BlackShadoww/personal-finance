@@ -26,13 +26,17 @@ import { ApiErrorResponse } from '../../common/swagger/api-response.swagger';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { TransactionFiltersDto } from './dto/transaction-filters.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { RecurringService } from '../recurring/recurring.service';
 import { TransactionsService } from './transactions.service';
 
 @ApiTags('Transactions')
 @ApiBearerAuth('access-token')
 @Controller('transactions')
 export class TransactionsController {
-  constructor(private readonly transactionsService: TransactionsService) {}
+  constructor(
+    private readonly transactionsService: TransactionsService,
+    private readonly recurringService: RecurringService,
+  ) {}
 
   @ApiOperation({
     summary: 'Create a transaction',
@@ -100,10 +104,12 @@ export class TransactionsController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized', type: ApiErrorResponse })
   @Get()
-  findAll(
+  async findAll(
     @CurrentUser() user: AuthenticatedUser,
     @Query() filters: TransactionFiltersDto,
   ) {
+    // Due recurring entries appear in the ledger as soon as it is opened.
+    await this.recurringService.materializeDue(user.id, user.timezone);
     return this.transactionsService.findAll(user.id, filters);
   }
 

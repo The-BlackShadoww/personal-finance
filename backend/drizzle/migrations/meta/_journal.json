@@ -64,6 +64,13 @@
       "when": 1790833691343,
       "tag": "0008_phase3_spending_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790834477220,
+      "tag": "0009_phase4_recurring",
+      "breakpoints": true
     }
   ]
 }
