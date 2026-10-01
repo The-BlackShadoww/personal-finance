@@ -2,6 +2,7 @@ import type { ApiResponse } from "@/types/api";
 
 import type { AccountSummary } from "./account";
 import { apiClient } from "./client";
+import type { DashboardInsights } from "./insights";
 
 export type MonthRange = {
   startYear: number;
@@ -24,7 +25,18 @@ export type DashboardOverview = {
   /** Present when the six-month trend reaches into the previous year. */
   previousYearly: YearlySummary | null;
   categoryBreakdown: CategoryBreakdownItem[];
+  /** The month's transfers into savings, investments and debt, in major units. */
+  surplusAllocation: SurplusAllocation;
   account: AccountSummary;
+  /** Today's net worth, runway, health score and next best action (not the selected month's). */
+  insights: DashboardInsights;
+};
+
+export type SurplusAllocation = {
+  saved: number;
+  invested: number;
+  debtRepaid: number;
+  total: number;
 };
 
 export type PeriodSummary = {

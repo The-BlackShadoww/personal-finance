@@ -183,19 +183,4 @@ export function ErrorNote({ children }: { children: ReactNode }) {
   );
 }
 
-export const usd = (value: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-
-export const usd0 = (value: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
-
 export const pct = (value: number) => `${value.toFixed(1)}%`;

@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -25,13 +26,17 @@ import { ApiErrorResponse } from '../../common/swagger/api-response.swagger';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { TransactionFiltersDto } from './dto/transaction-filters.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { RecurringService } from '../recurring/recurring.service';
 import { TransactionsService } from './transactions.service';
 
 @ApiTags('Transactions')
 @ApiBearerAuth('access-token')
 @Controller('transactions')
 export class TransactionsController {
-  constructor(private readonly transactionsService: TransactionsService) {}
+  constructor(
+    private readonly transactionsService: TransactionsService,
+    private readonly recurringService: RecurringService,
+  ) {}
 
   @ApiOperation({
     summary: 'Create a transaction',
@@ -62,26 +67,29 @@ export class TransactionsController {
   @Get('projected-balance')
   @ApiQuery({ name: 'amount', description: 'Transaction amount in cents' })
   @ApiQuery({ name: 'type', enum: ['income', 'expense'] })
+  @ApiQuery({ name: 'accountId', required: false, description: 'Defaults to the default account' })
   projectedBalance(
     @CurrentUser() user: AuthenticatedUser,
     @Query('amount') amount: string,
     @Query('type') type: 'income' | 'expense',
+    @Query('accountId', new ParseUUIDPipe({ optional: true })) accountId?: string,
   ) {
     const amountCents = Number(amount);
     if (!Number.isInteger(amountCents) || amountCents <= 0 || !['income', 'expense'].includes(type)) {
       throw new BadRequestException('amount must be a positive integer in cents and type must be income or expense');
     }
-    return this.transactionsService.getProjectedBalance(user.id, amountCents, type);
+    return this.transactionsService.getProjectedBalance(user.id, amountCents, type, accountId);
   }
 
   @ApiOperation({
     summary: 'List transactions',
-    description: 'Returns paginated transactions for the authenticated user. Supports filtering by date range, type, and category.',
+    description: 'Returns paginated transactions for the authenticated user. Supports filtering by date range, type, category and account.',
   })
   @ApiQuery({ name: 'startDate', required: false, example: '2025-01-01' })
   @ApiQuery({ name: 'endDate', required: false, example: '2025-01-31' })
-  @ApiQuery({ name: 'type', required: false, enum: ['income', 'expense'] })
+  @ApiQuery({ name: 'type', required: false, enum: ['income', 'expense', 'transfer'] })
   @ApiQuery({ name: 'categoryId', required: false, example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiQuery({ name: 'accountId', required: false, example: '550e8400-e29b-41d4-a716-446655440000' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiResponse({
@@ -96,10 +104,12 @@ export class TransactionsController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized', type: ApiErrorResponse })
   @Get()
-  findAll(
+  async findAll(
     @CurrentUser() user: AuthenticatedUser,
     @Query() filters: TransactionFiltersDto,
   ) {
+    // Due recurring entries appear in the ledger as soon as it is opened.
+    await this.recurringService.materializeDue(user.id, user.timezone);
     return this.transactionsService.findAll(user.id, filters);
   }
 

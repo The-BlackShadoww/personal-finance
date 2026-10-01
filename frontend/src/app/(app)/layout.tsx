@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { LogoMark } from "@/components/brand/Logo";
 import { AppHeader } from "@/components/layouts/AppHeader";
+import { MoneyFormatProvider } from "@/components/layouts/MoneyFormatProvider";
 
 type AppLayoutProps = {
   children: ReactNode;
@@ -25,7 +26,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           transition={{ duration: 0.15, ease: "easeOut" }}
           className="mx-auto w-full max-w-[1176px]"
         >
-          {children}
+          <MoneyFormatProvider>{children}</MoneyFormatProvider>
         </motion.div>
       </main>
       <footer className="border-t border-line px-5 md:px-8">

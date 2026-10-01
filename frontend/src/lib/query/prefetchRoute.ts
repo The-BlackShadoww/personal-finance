@@ -1,8 +1,12 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { accountSummaryQueryOptions } from "@/lib/hooks/useAccount";
+import { accountsQueryOptions } from "@/lib/hooks/useAccounts";
 import { categoriesQueryOptions } from "@/lib/hooks/useCategories";
 import { prefetchDashboardOverview } from "@/lib/hooks/useDashboardOverview";
+import { planQueryOptions } from "@/lib/hooks/useBudgets";
+import { goalsQueryOptions } from "@/lib/hooks/useGoals";
+import { insightsQueryOptions } from "@/lib/hooks/useInsights";
 import { reportPreviewQueryOptions } from "@/lib/hooks/useReportPreview";
 import { transactionsQueryOptions } from "@/lib/hooks/useTransactions";
 
@@ -23,12 +27,24 @@ export function prefetchRoute(queryClient: QueryClient, href: string) {
     case "/dashboard":
       void prefetchDashboardOverview(queryClient, year, month);
       break;
-    case "/account":
+    case "/accounts":
+      void queryClient.prefetchQuery(accountsQueryOptions());
       void queryClient.prefetchQuery(accountSummaryQueryOptions());
+      break;
+    case "/budgets":
+      void queryClient.prefetchQuery(planQueryOptions(year, month));
+      break;
+    case "/goals":
+      void queryClient.prefetchQuery(goalsQueryOptions());
+      void queryClient.prefetchQuery(accountsQueryOptions());
       break;
     case "/transactions":
       void queryClient.prefetchQuery(transactionsQueryOptions(TRANSACTIONS_FIRST_PAGE));
+      void queryClient.prefetchQuery(accountsQueryOptions());
       void queryClient.prefetchQuery(categoriesQueryOptions());
+      break;
+    case "/insights":
+      void queryClient.prefetchQuery(insightsQueryOptions());
       break;
     case "/reports":
       void queryClient.prefetchQuery(reportPreviewQueryOptions(year, month, year, month));

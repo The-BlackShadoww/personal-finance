@@ -4,6 +4,19 @@ import { apiClient } from "./client";
 
 export type CategoryType = 'income' | 'expense';
 
+/** Marks an expense category that feeds a specific ratio (housing cost, debt service, …). */
+export type CategoryTag = 'housing' | 'debt_interest' | 'insurance' | 'education' | 'health';
+
+export type IncomeKind = 'active' | 'passive' | 'portfolio';
+
+/** Classification fields; spending ones apply to expense categories, incomeKind to income. */
+export interface CategoryClassification {
+  essential?: boolean;
+  fixed?: boolean;
+  tag?: CategoryTag | null;
+  incomeKind?: IncomeKind | null;
+}
+
 export interface Category {
   id: string;
   userId: string;
@@ -13,18 +26,24 @@ export interface Category {
   icon: string;
   isDefault: boolean;
   sortOrder: number;
+  /** A need rather than a want. */
+  essential: boolean;
+  /** Roughly the same amount every month. */
+  fixed: boolean;
+  tag: CategoryTag | null;
+  incomeKind: IncomeKind | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CreateCategoryPayload {
+export interface CreateCategoryPayload extends CategoryClassification {
   name: string;
   type: CategoryType;
   color: string;
   icon: string;
 }
 
-export interface UpdateCategoryPayload {
+export interface UpdateCategoryPayload extends CategoryClassification {
   name?: string;
   color?: string;
   icon?: string;

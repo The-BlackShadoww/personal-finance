@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, IsUrl } from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength, IsUrl } from 'class-validator';
+import { SUPPORTED_CURRENCIES } from '../../../common/money/locale';
 
 export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'Ashikur Rahman', maxLength: 100 })
@@ -28,4 +29,21 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(100)
   timezone?: string;
+
+  @ApiPropertyOptional({
+    description: 'ISO 4217 currency code used to display money',
+    example: 'BDT',
+  })
+  @IsOptional()
+  @IsIn(SUPPORTED_CURRENCIES, { message: 'currency must be a supported ISO 4217 code' })
+  currency?: string;
+
+  @ApiPropertyOptional({
+    description: 'BCP 47 locale used to format numbers and dates',
+    example: 'en-BD',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(35)
+  locale?: string;
 }

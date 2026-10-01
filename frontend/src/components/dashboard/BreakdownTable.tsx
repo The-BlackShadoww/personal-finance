@@ -3,7 +3,8 @@
 import { motion, useReducedMotion } from "framer-motion";
 import type { MonthlyBreakdownItem } from "@/lib/api/calculations";
 import { cn } from "@/lib/utils/cn";
-import { formatDollar, monthName } from "@/lib/utils/format";
+import { monthName } from "@/lib/utils/format";
+import { formatMoneyAbs } from "@/lib/utils/money";
 
 interface BreakdownTableProps {
   rows: MonthlyBreakdownItem[];
@@ -14,7 +15,7 @@ interface BreakdownTableProps {
 }
 
 function signed(value: number) {
-  return `${value < 0 ? "-" : ""}${formatDollar(value)}`;
+  return `${value < 0 ? "-" : ""}${formatMoneyAbs(value)}`;
 }
 
 export function BreakdownTable({ rows, comparisonRows, comparisonYear, isLoading }: BreakdownTableProps) {
@@ -80,10 +81,10 @@ export function BreakdownTable({ rows, comparisonRows, comparisonYear, isLoading
                         </div>
                       </td>
                       <td className="num px-4 py-3.5 text-right text-foreground">
-                        {row.totalIncome > 0 ? formatDollar(row.totalIncome) : <span className="text-faint">—</span>}
+                        {row.totalIncome > 0 ? formatMoneyAbs(row.totalIncome) : <span className="text-faint">—</span>}
                       </td>
                       <td className="num px-4 py-3.5 text-right text-foreground">
-                        {row.totalExpense > 0 ? formatDollar(row.totalExpense) : <span className="text-faint">—</span>}
+                        {row.totalExpense > 0 ? formatMoneyAbs(row.totalExpense) : <span className="text-faint">—</span>}
                       </td>
                       <td
                         className={cn(
@@ -107,7 +108,7 @@ export function BreakdownTable({ rows, comparisonRows, comparisonYear, isLoading
                               )}
                             >
                               {savingsDiff > 0 ? "Up " : "Down "}
-                              {formatDollar(Math.abs(savingsDiff))}
+                              {formatMoneyAbs(Math.abs(savingsDiff))}
                             </span>
                           )}
                         </td>
@@ -121,8 +122,8 @@ export function BreakdownTable({ rows, comparisonRows, comparisonYear, isLoading
               <tr className="border-t border-line bg-surface-2/60">
                 <td className="px-6 py-4 text-[13px] text-muted">Total</td>
                 <td />
-                <td className="num px-4 py-4 text-right text-foreground">{formatDollar(totalIncome)}</td>
-                <td className="num px-4 py-4 text-right text-foreground">{formatDollar(totalExpense)}</td>
+                <td className="num px-4 py-4 text-right text-foreground">{formatMoneyAbs(totalIncome)}</td>
+                <td className="num px-4 py-4 text-right text-foreground">{formatMoneyAbs(totalExpense)}</td>
                 <td
                   className={cn(
                     "num px-6 py-4 text-right",

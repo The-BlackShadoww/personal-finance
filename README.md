@@ -15,18 +15,26 @@ A modern, full-stack personal finance application for tracking income and expens
 - Password change, profile management, and route protection via Next.js middleware
 
 **Financial data**
-- **Transactions** — Create, read, update, and delete income/expense entries with dates, notes, and categories
-- **Categories** — Custom income and expense categories with colors and icons (managed in Settings)
-- **Budgets** — Monthly budget limits per category (API ready; UI page is a placeholder)
-- **Account setup** — Initial balance, low-balance threshold, and savings-sector allocations
-- **Calculations** — Monthly, quarterly, and yearly summaries plus category breakdowns for the dashboard
-- **Reports** — CSV and PDF export for any date range, with preview and local download history
+- **Transactions** — Create, read, update, and delete income, expense and transfer entries with dates, notes, categories and accounts. Transfers move money between your own accounts (into savings, investments or onto a card) and never count as income or spending
+- **Recurring** — Salary, bills, subscriptions and regular transfers ("invest every payday", debt payments) on weekly to yearly schedules with month-end clamping. Automatic rules are recorded when due — a recorded salary shares itself out to income-funded goals — and the rest wait under Due to be confirmed (with the actual amount) or skipped. Billing-month offset for rent paid in arrears; "Make recurring" from any entry; subscription totals per month and year; a "Coming up" panel on the dashboard
+- **Categories** — Custom income and expense categories with colors and icons (managed in Settings). Expense categories are marked need/want and fixed/variable and can count toward ratios such as housing or debt interest; income categories are marked active, passive or portfolio
+- **Spending plan** — A monthly plan ordered the way money should flow: pay yourself first (goal funding and other saving), then needs, then wants. Expected income suggested from the last 3 months; 50/30/20, 70/20/10, zero-based or caps-only methods with targets; per-category budgets with rollover, 3-month averages and median suggestions; copy last month; move budget between categories when one runs over
+- **Accounts** — Bank, cash, mobile wallet, savings, investment, retirement and property assets plus credit cards and loans, with balances, a six-month trend, net worth and money available to spend. Investment, retirement and property accounts take dated valuations (value = latest valuation plus money moved since), with a reminder when a value is over a month old. Archive (zero balance) or delete (unused) accounts
+- **Insights** — A financial health score (0–100) from nine measures — savings and investing rate, emergency cover, debt payments, high-interest debt, housing and fixed costs, net-worth trend, insurance — each shown with its value, target and how to improve; one Next Best Action that walks the money waterfall (starter buffer → employer match → high-interest debt → emergency fund → investing 15% → sinking funds → insurance) with a concrete monthly amount; runway in months (full lifestyle and essentials only); month-end net worth history; and up to three spending insights (category running high, unusually large expense, untracked subscription, lifestyle creep). On the dashboard and its own Insights page
+- **Wealth building** — On Insights: a debt payoff planner comparing avalanche, snowball and minimums (payoff dates, interest saved, warnings when a minimum does not cover interest) that can schedule the monthly payments; a financial-independence calculator (FI number, years to FI, coast FI, passive-income coverage and a savings-rate × return table); investment tracking (12-month return from your valuations, asset mix against a target with rebalancing advice, yearly fees and 20-year fee drag, months invested); and income tracking (by kind, sources, concentration, year-over-year growth)
+- **Habits** — A monthly review once a month closes: the numbers (savings rate vs target, net-worth and health-score change), three wins, three leaks, a "worth it?" rating of the biggest discretionary categories (repeated "not worth it" suggests a lower budget), and one commitment that the next review checks. A cooling-off list for wants: non-essential expenses above your threshold can wait 24 hours to 30 days, then you buy (pre-filled expense) or skip, with skipped totals for the year and one tap to set skipped money aside for a goal
+- **Goals** — Money set aside inside your accounts: an emergency fund sized from essential spending (with a one-month starter milestone), sinking funds with dates (optionally yearly and linked to a spending category), and other goals. Fund goals with a percent of every income or a fixed monthly amount so income is shared out the moment it is recorded (with Undo), or add money by hand; withdrawals ask for a reason. Available to spend = liquid money minus goal money
+- **Account setup** — Default-account opening balance and low-balance threshold (checked against money available to spend)
+- **Calculations** — Monthly, quarterly, and yearly summaries, category breakdowns, and where each month's surplus went (savings, investments, debt) for the dashboard
+- **Reports** — CSV and PDF export for any date range in the user's currency, with preview and local download history
+- **Currency & number format** — Any ISO 4217 currency and a choice of number grouping (including lakh/crore); money is stored as 64-bit minor units
+- **Financial profile** — Income stability (with a suggestion from recent income), dependents, insurance and employer match, plus retirement assumptions, used to tailor targets and advice
 
 **Frontend**
 - **Dashboard** — Monthly, quarterly, and yearly views with Recharts visualizations
 - **Transactions** — Paginated ledger with filters and modal create/edit forms
 - **Reports** — Date-range picker, format selection, and one-click downloads
-- **Settings** — Profile, security (2FA), preferences, categories, and account configuration
+- **Settings** — Profile, security (2FA), preferences (appearance, currency, timezone), financial profile, categories, and account configuration
 - **Landing page** — Marketing home page with links to auth flows
 
 **Platform**
@@ -38,7 +46,7 @@ A modern, full-stack personal finance application for tracking income and expens
 
 ### Planned / in progress
 
-- **Budgets UI** — Backend endpoints exist; the `/budgets` page still needs a full interface
+- **Roadmap** — All planned phases are implemented; see [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)
 - Additional polish, tests, and production hardening
 
 ---

@@ -11,15 +11,19 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { MAX_AMOUNT } from '../../../common/money/money.constants';
 
 export enum TransactionType {
   Income = 'income',
   Expense = 'expense',
+  /** Money moved between two of the user's accounts; not income or spending. */
+  Transfer = 'transfer',
 }
 
 export class CreateTransactionDto {
   @ApiProperty({
-    description: 'Whether this is income or an expense',
+    description:
+      'income, expense, or transfer (money moved between your own accounts, e.g. into savings or onto a credit card)',
     enum: TransactionType,
     example: 'expense',
   })
@@ -33,6 +37,7 @@ export class CreateTransactionDto {
   })
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
+  @Max(MAX_AMOUNT)
   amount!: number;
 
   @ApiProperty({
@@ -67,12 +72,43 @@ export class CreateTransactionDto {
   @Max(2100)
   transactionYear!: number;
 
-  @ApiProperty({
-    description: 'UUID of the category this transaction belongs to. Must belong to the authenticated user and match the transaction type.',
+  @ApiPropertyOptional({
+    description:
+      'Income and expense only (required for them): a category of the same type owned by the user. ' +
+      'Must be omitted for transfers.',
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
+  @IsOptional()
   @IsUUID()
-  categoryId!: string;
+  categoryId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Income/expense: the account money arrived in or left from. Transfer: the source account. ' +
+      "Defaults to the user's default account.",
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsOptional()
+  @IsUUID()
+  accountId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Transfers only (required for them): the destination account.',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsOptional()
+  @IsUUID()
+  counterAccountId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Expenses only: pay from this goal (e.g. a sinking fund). Up to the expense amount is taken ' +
+      "from the goal, and moved to the paying account if the goal's money is elsewhere.",
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsOptional()
+  @IsUUID()
+  payFromGoalId?: string;
 
   @ApiPropertyOptional({
     description: 'Optional note or description for this transaction',

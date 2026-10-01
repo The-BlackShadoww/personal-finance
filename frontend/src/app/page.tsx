@@ -179,7 +179,7 @@ function Marquee() {
   const items = [
     "Monthly summaries",
     "Category breakdowns",
-    "Savings sectors",
+    "Savings goals",
     "Low-balance alerts",
     "CSV export",
     "PDF reports",
@@ -449,8 +449,8 @@ const FAQS = [
     a: "Your running balance starts from the initial balance you set in Settings, then adds every income entry and subtracts every expense.",
   },
   {
-    q: "What are savings sectors?",
-    a: "Sectors split your balance into named goals, each with a percentage and an optional target. Whatever is not allocated stays in Cash.",
+    q: "How do savings goals work?",
+    a: "Goals set real money aside inside your accounts — an emergency fund, a sinking fund for a known cost, or anything else. Fund them with a share of every income so you pay yourself first; what is not set aside is available to spend.",
   },
   {
     q: "Can I export my data?",

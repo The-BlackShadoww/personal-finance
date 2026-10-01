@@ -17,9 +17,11 @@ import { cn } from "@/lib/utils/cn";
 
 export const NAVIGATION = [
   { href: "/dashboard", label: "Overview" },
-  { href: "/account", label: "Account" },
+  { href: "/accounts", label: "Accounts" },
+  { href: "/goals", label: "Goals" },
   { href: "/transactions", label: "Transactions" },
-  { href: "/budgets", label: "Budgets" },
+  { href: "/budgets", label: "Plan" },
+  { href: "/insights", label: "Insights" },
   { href: "/reports", label: "Reports" },
   { href: "/settings", label: "Settings" },
 ];

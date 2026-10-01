@@ -1,17 +1,3 @@
-// Formats a number in dollars to a display string.
-// Input is in DOLLARS (not cents): 1500.50 -> "$1,500.50"
-// Used for values returned by the calculations API.
-export function formatDollar(amount: number): string {
-  const abs = Math.abs(amount);
-  return (
-    "$" +
-    abs.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-  );
-}
-
 // Returns the full month name for a month number.
 // monthName(1) -> "January", monthName(12) -> "December"
 export function monthName(month: number): string {

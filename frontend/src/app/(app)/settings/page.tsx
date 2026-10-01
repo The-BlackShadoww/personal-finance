@@ -4,10 +4,11 @@ import { Plus, X } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
-import { CategoryForm } from "@/components/categories/CategoryForm";
+import { CategoryForm, type CategoryFormSubmitValues } from "@/components/categories/CategoryForm";
 import { CategoryRow } from "@/components/categories/CategoryRow";
 import { PageHeader } from "@/components/layouts/PageHeader";
 import { AccountSettingsTab } from "@/components/settings/AccountSettingsTab";
+import { FinancialProfileTab } from "@/components/settings/FinancialProfileTab";
 import { PreferencesTab } from "@/components/settings/PreferencesTab";
 import { ProfileTab } from "@/components/settings/ProfileTab";
 import { SecurityTab } from "@/components/settings/SecurityTab";
@@ -16,14 +17,15 @@ import type { Category } from "@/lib/api/categories";
 import { useCategories, useCreateCategory, useDeleteCategory, useUpdateCategory } from "@/lib/hooks/useCategories";
 import { cn } from "@/lib/utils/cn";
 
-type Tab = "profile" | "security" | "preferences" | "categories" | "account";
+type Tab = "profile" | "security" | "preferences" | "financial" | "categories" | "account";
 
 const TABS: Array<{ id: Tab; label: string; description: string }> = [
   { id: "profile", label: "Profile", description: "Your name and avatar." },
   { id: "security", label: "Security", description: "Password and two-factor authentication." },
-  { id: "preferences", label: "Preferences", description: "Timezone and appearance." },
+  { id: "preferences", label: "Preferences", description: "Appearance, currency and timezone." },
+  { id: "financial", label: "Financial profile", description: "A few answers that tailor targets and advice to your situation." },
   { id: "categories", label: "Categories", description: "The labels you sort transactions into." },
-  { id: "account", label: "Account", description: "Starting balance and savings sectors." },
+  { id: "account", label: "Account", description: "Low-balance alert and default opening balance. Accounts and goals have their own pages." },
 ];
 
 export default function SettingsPage() {
@@ -43,13 +45,22 @@ export default function SettingsPage() {
   const expenseCategories = categories.filter((category) => category.type === "expense");
   const activeMeta = TABS.find((tab) => tab.id === activeTab) ?? TABS[0];
 
+  // The active tab lives in the URL so links can target it and it survives a
+  // remount (changing currency remounts the app).
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("tab") === "account") {
-      setActiveTab("account");
-    }
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    const match = TABS.find((tab) => tab.id === requested);
+    if (match) setActiveTab(match.id);
   }, []);
 
-  async function handleFormSubmit(values: { name: string; type: "income" | "expense"; color: string; icon: string }) {
+  function selectTab(tab: Tab) {
+    setActiveTab(tab);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    window.history.replaceState(window.history.state, "", url);
+  }
+
+  async function handleFormSubmit(values: CategoryFormSubmitValues) {
     setError(null);
     try {
       if (editingCategory) {
@@ -95,7 +106,7 @@ export default function SettingsPage() {
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => selectTab(tab.id)}
                   role="tab"
                   aria-selected={active}
                   className={cn(
@@ -156,6 +167,7 @@ export default function SettingsPage() {
                   {activeTab === "profile" && <ProfileTab />}
                   {activeTab === "security" && <SecurityTab />}
                   {activeTab === "preferences" && <PreferencesTab />}
+                  {activeTab === "financial" && <FinancialProfileTab />}
                   {activeTab === "account" && <AccountSettingsTab />}
                   {activeTab === "categories" && (
                     <div className="space-y-8">

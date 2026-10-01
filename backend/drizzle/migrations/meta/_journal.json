@@ -36,6 +36,62 @@
       "when": 1786725996794,
       "tag": "0004_serious_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790805496860,
+      "tag": "0005_phase0_foundations",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790830850133,
+      "tag": "0006_phase1_accounts_transfers",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790832584016,
+      "tag": "0007_phase2_goals",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790833691343,
+      "tag": "0008_phase3_spending_plan",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790834477220,
+      "tag": "0009_phase4_recurring",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790836074085,
+      "tag": "0010_phase5_insights",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790837825721,
+      "tag": "0011_phase6_wealth",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790839388280,
+      "tag": "0012_phase7_habits",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,10 @@
 import type { ApiResponse } from "@/types/api";
 
+import type { AccountKind } from "./accounts";
 import { apiClient } from "./client";
 
-export type TransactionType = "income" | "expense";
+/** A transfer moves money between two of the user's accounts; it is not income or spending. */
+export type TransactionType = "income" | "expense" | "transfer";
 
 export type TransactionFilters = {
   page?: number;
@@ -13,26 +15,54 @@ export type TransactionFilters = {
   month?: number;
   type?: TransactionType;
   categoryId?: string;
+  accountId?: string;
 };
 
 export type TransactionCategory = {
   id: string;
   name: string;
-  type: TransactionType;
+  type: "income" | "expense";
   color?: string | null;
   icon?: string | null;
 };
 
+export type TransactionAccount = {
+  id: string;
+  name: string;
+  kind: AccountKind;
+  nature: "asset" | "liability";
+  color: string;
+  icon: string;
+};
+
 export type Transaction = {
   id: string;
-  categoryId: string;
+  /** Income/expense: where money arrived or left. Transfer: the source. */
+  accountId: string;
+  /** Transfers only: the destination. */
+  counterAccountId: string | null;
+  /** Null for transfers. */
+  categoryId: string | null;
   type: TransactionType;
   amountCents: number;
   date: string;
   transactionMonth: number;
   transactionYear: number;
   note?: string | null;
-  category: TransactionCategory;
+  /** Set when a recurring rule posted this entry. */
+  recurringRuleId?: string | null;
+  category: TransactionCategory | null;
+  account: TransactionAccount;
+  counterAccount: TransactionAccount | null;
+};
+
+/** A goal's share of an income, or what a goal paid towards an expense. */
+export type GoalMovement = { goalId: string; name: string; amountCents: number };
+
+/** What creating an entry returns: the entry plus what goals did because of it. */
+export type CreatedTransaction = Transaction & {
+  goalAllocation: GoalMovement[];
+  goalPayment: GoalMovement | null;
 };
 
 export type TransactionsResponse = {
@@ -44,7 +74,14 @@ export type TransactionsResponse = {
 
 export type TransactionPayload = {
   type: TransactionType;
-  categoryId: string;
+  /** Required for income and expense; omitted for transfers. */
+  categoryId?: string;
+  /** Defaults to the default account. */
+  accountId?: string;
+  /** Required for transfers. */
+  counterAccountId?: string;
+  /** Expenses only: pay from this goal (e.g. a sinking fund). */
+  payFromGoalId?: string;
   amount: number;
   date: string;
   transactionMonth: number;
@@ -71,7 +108,7 @@ export const transactionsApi = {
   },
 
   async create(payload: TransactionPayload) {
-    const response = await apiClient<ApiResponse<Transaction>>(
+    const response = await apiClient<ApiResponse<CreatedTransaction>>(
       "/transactions",
       {
         method: "POST",

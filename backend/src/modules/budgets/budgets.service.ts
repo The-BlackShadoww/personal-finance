@@ -1,8 +1,9 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
 import { budgets, categories, transactions } from '../../db/schema';
 import { CalculationsService } from '../calculations/calculations.service';
+import { BulkBudgetsDto } from './dto/plan.dto';
 import { UpsertBudgetDto } from './dto/upsert-budget.dto';
 
 type CategoryExpenseRow = {
@@ -32,6 +33,7 @@ export class BudgetsService {
         year: dto.year,
         month: dto.month,
         amountCents: Math.round(dto.amount * 100),
+        rollover: dto.rollover ?? false,
       })
       .onConflictDoUpdate({
         target: [
@@ -42,12 +44,108 @@ export class BudgetsService {
         ],
         set: {
           amountCents: Math.round(dto.amount * 100),
+          rollover: dto.rollover,
           updatedAt: new Date(),
         },
       })
       .returning();
 
     return budget;
+  }
+
+  /**
+   * Saves several category budgets for a month at once (a plan edit, a
+   * reallocation between categories, or applying suggestions). A null
+   * amount removes that category's budget.
+   */
+  async bulkUpsert(userId: string, dto: BulkBudgetsDto) {
+    const ids = [...new Set(dto.items.map((item) => item.categoryId))];
+    if (ids.length) {
+      const owned = await this.db
+        .select({ id: categories.id })
+        .from(categories)
+        .where(
+          and(
+            eq(categories.userId, userId),
+            eq(categories.type, 'expense'),
+            isNull(categories.deletedAt),
+            inArray(categories.id, ids),
+          ),
+        );
+      if (owned.length !== ids.length) {
+        throw new NotFoundException('Expense category not found');
+      }
+    }
+
+    await this.db.transaction(async (tx) => {
+      for (const item of dto.items) {
+        const period = and(
+          eq(budgets.userId, userId),
+          eq(budgets.year, dto.year),
+          eq(budgets.month, dto.month),
+          eq(budgets.categoryId, item.categoryId),
+        );
+        if (item.amount === null) {
+          await tx.delete(budgets).where(period);
+          continue;
+        }
+        const amountCents = Math.round(item.amount * 100);
+        await tx
+          .insert(budgets)
+          .values({
+            userId,
+            categoryId: item.categoryId,
+            year: dto.year,
+            month: dto.month,
+            amountCents,
+            rollover: item.rollover ?? false,
+          })
+          .onConflictDoUpdate({
+            target: [budgets.userId, budgets.year, budgets.month, budgets.categoryId],
+            set: { amountCents, rollover: item.rollover, updatedAt: new Date() },
+          });
+      }
+    });
+
+    return { saved: dto.items.length };
+  }
+
+  async remove(userId: string, budgetId: string) {
+    const [removed] = await this.db
+      .delete(budgets)
+      .where(and(eq(budgets.id, budgetId), eq(budgets.userId, userId)))
+      .returning({ id: budgets.id });
+    if (!removed) throw new NotFoundException('Budget not found');
+    return { success: true };
+  }
+
+  /**
+   * Copies the previous month's budgets and plan into a month. Budgets the
+   * month already has are kept.
+   */
+  async copyFromPreviousMonth(userId: string, year: number, month: number) {
+    const previous = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+
+    return this.db.transaction(async (tx) => {
+      const copied = await tx.execute<{ id: string }>(sql`
+        INSERT INTO budgets (user_id, category_id, year, month, amount_cents, rollover)
+        SELECT user_id, category_id, ${year}, ${month}, amount_cents, rollover
+        FROM budgets
+        WHERE user_id = ${userId} AND year = ${previous.year} AND month = ${previous.month}
+        ON CONFLICT ON CONSTRAINT budgets_user_year_month_category_idx DO NOTHING
+        RETURNING id
+      `);
+
+      await tx.execute(sql`
+        INSERT INTO monthly_plans (user_id, year, month, expected_income_cents, method, notes)
+        SELECT user_id, ${year}, ${month}, expected_income_cents, method, NULL
+        FROM monthly_plans
+        WHERE user_id = ${userId} AND year = ${previous.year} AND month = ${previous.month}
+        ON CONFLICT (user_id, year, month) DO NOTHING
+      `);
+
+      return { copied: copied.length, from: previous };
+    });
   }
 
   async getMonthlyBudgetStatus(userId: string, year: number, month: number) {

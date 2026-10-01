@@ -5,4 +5,6 @@ export interface AuthenticatedUser {
   avatarUrl: string | null;
   twoFactorEnabled: boolean;
   timezone: string;
+  currency: string;
+  locale: string;
 }

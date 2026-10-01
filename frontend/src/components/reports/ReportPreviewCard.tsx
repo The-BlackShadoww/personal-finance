@@ -6,11 +6,7 @@ import { motion } from "framer-motion";
 
 import { AnimatedNumber } from "@/components/motion/Reveal";
 import type { ReportPreviewData } from "@/lib/hooks/useReportPreview";
-
-function formatDollar(amount: number): string {
-  const abs = Math.abs(amount);
-  return `$${abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { formatMoneyAbs } from "@/lib/utils/money";
 
 interface ReportPreviewCardProps {
   preview: ReportPreviewData | undefined;
@@ -68,11 +64,11 @@ export function ReportPreviewCard({
     const flow = Math.max(1, preview.totalIncome + preview.totalExpense);
 
     const rows = [
-      { label: "Income", value: formatDollar(preview.totalIncome), dot: "var(--ds-series-income)" },
-      { label: "Expenses", value: formatDollar(preview.totalExpense), dot: "var(--ds-series-expense)" },
+      { label: "Income", value: formatMoneyAbs(preview.totalIncome), dot: "var(--ds-series-income)" },
+      { label: "Expenses", value: formatMoneyAbs(preview.totalExpense), dot: "var(--ds-series-expense)" },
       {
         label: "Net savings",
-        value: `${preview.savings < 0 ? "−" : ""}${formatDollar(preview.savings)}`,
+        value: `${preview.savings < 0 ? "−" : ""}${formatMoneyAbs(preview.savings)}`,
         dot: "var(--ds-series-net)",
       },
       { label: "Transactions", value: preview.transactionCount.toLocaleString() },
@@ -107,7 +103,7 @@ export function ReportPreviewCard({
             <p className="text-[13px] text-muted">Net savings</p>
             <AnimatedNumber
               value={preview.savings}
-              format={(v) => `${v < 0 ? "−" : ""}${formatDollar(v)}`}
+              format={(v) => `${v < 0 ? "−" : ""}${formatMoneyAbs(v)}`}
               className="num mt-1 block text-[40px] font-[360] leading-none tracking-[-0.04em]"
             />
           </div>

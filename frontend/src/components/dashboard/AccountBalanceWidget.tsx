@@ -5,12 +5,12 @@ import { ArrowDownLeft, ArrowUpRight, GearSix, Plus, Warning } from "@phosphor-i
 import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
-import { SectorsBreakdown } from "@/components/dashboard/SectorsBreakdown";
+import { GoalsBreakdown } from "@/components/dashboard/GoalsBreakdown";
 import { AnimatedNumber } from "@/components/motion/Reveal";
 import { buttonClass } from "@/components/ui/Button";
 import type { AccountSummary } from "@/lib/api/account";
 import { cn } from "@/lib/utils/cn";
-import { formatDollar } from "@/lib/utils/format";
+import { formatMoneyAbs } from "@/lib/utils/money";
 
 type AccountBalanceWidgetProps = {
   className?: string;
@@ -34,25 +34,29 @@ export function AccountBalanceWidget({ className, summary, isLoading }: AccountB
     );
   }
 
-  if (!summary || summary.initialBalanceCents === 0) {
+  const isEmpty =
+    !summary || (summary.initialBalanceCents === 0 && summary.totalIncomeCents === 0 && summary.totalExpenseCents === 0);
+
+  if (isEmpty) {
     return (
       <div className={cn("card-muted relative flex flex-col justify-between gap-8 overflow-clip p-7 md:p-8", className)}>
         <div className="dot-grid absolute inset-0 opacity-60 [mask-image:linear-gradient(to_left,black,transparent_70%)]" aria-hidden="true" />
         <div className="relative">
           <p className="eyebrow">Account balance</p>
           <p className="mt-4 max-w-sm text-[24px] leading-[1.2] tracking-[-0.02em] text-foreground">
-            Your account is not set up yet.
-            <span className="text-ghost"> Add a starting balance to see a running total.</span>
+            Nothing to show yet.
+            <span className="text-ghost"> Add your accounts and what they hold to see a running total.</span>
           </p>
         </div>
-        <Link href="/settings?tab=account" className={buttonClass({ className: "relative w-fit" })}>
-          <Plus size={14} weight="bold" /> Set starting balance
+        <Link href="/accounts" className={buttonClass({ className: "relative w-fit" })}>
+          <Plus size={14} weight="bold" /> Add accounts
         </Link>
       </div>
     );
   }
 
-  const negative = summary.currentBalanceCents < 0;
+  // Money set aside for goals is not available to spend.
+  const negative = summary.availableCents < 0;
   const warning = summary.isLowBalance && !negative;
 
   return (
@@ -65,7 +69,7 @@ export function AccountBalanceWidget({ className, summary, isLoading }: AccountB
       />
       <div className="relative flex items-start justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2.5">
-          <p className="eyebrow">Account balance</p>
+          <p className="eyebrow">Available to spend</p>
           {negative || warning ? (
             <span className={cn("tag", negative ? "bg-red-bg text-red-fg" : "bg-yellow-bg text-yellow-fg")}>
               <Warning size={11} weight="fill" />
@@ -84,32 +88,37 @@ export function AccountBalanceWidget({ className, summary, isLoading }: AccountB
       </div>
 
       <AnimatedNumber
-        value={summary.currentBalanceCents / 100}
-        format={(value) => `${value < 0 ? "-" : ""}${formatDollar(value)}`}
+        value={summary.availableCents / 100}
+        format={(value) => `${value < 0 ? "-" : ""}${formatMoneyAbs(value)}`}
         duration={0.7}
         className="num relative mt-5 block text-[44px] font-[360] leading-none tracking-[-0.045em] text-foreground sm:text-[56px] md:text-[64px]"
       />
 
-      {negative || warning ? (
-        <p className="relative mt-3 text-[13px] text-muted">
-          {negative
-            ? "Your account balance is negative."
-            : `Your balance is below ${formatDollar(summary.lowBalanceThresholdCents / 100)}.`}
-        </p>
-      ) : null}
+      <p className="relative mt-3 text-[13px] text-muted">
+        {negative
+          ? "You have spent into money set aside for goals, or below zero."
+          : warning
+            ? `Below your ${formatMoneyAbs(summary.lowBalanceThresholdCents / 100)} low-balance alert.`
+            : null}
+        {summary.earmarkedCents > 0 ? (
+          <span className={negative || warning ? "block" : undefined}>
+            Plus <span className="num text-foreground">{formatMoneyAbs(summary.earmarkedCents / 100)}</span> set aside for goals.
+          </span>
+        ) : null}
+      </p>
 
       <div className="relative mt-auto flex flex-wrap items-center gap-x-6 gap-y-2 pt-8 text-[13px]">
         <span className="flex items-center gap-2 text-muted">
           <span className="grid h-5 w-5 place-items-center rounded-full bg-surface text-income">
             <ArrowDownLeft size={11} weight="bold" />
           </span>
-          In <span className="num text-foreground">{formatDollar(summary.totalIncomeCents / 100)}</span>
+          In <span className="num text-foreground">{formatMoneyAbs(summary.totalIncomeCents / 100)}</span>
         </span>
         <span className="flex items-center gap-2 text-muted">
           <span className="grid h-5 w-5 place-items-center rounded-full bg-surface text-expense">
             <ArrowUpRight size={11} weight="bold" />
           </span>
-          Out <span className="num text-foreground">{formatDollar(summary.totalExpenseCents / 100)}</span>
+          Out <span className="num text-foreground">{formatMoneyAbs(summary.totalExpenseCents / 100)}</span>
         </span>
         <button
           type="button"
@@ -117,7 +126,7 @@ export function AccountBalanceWidget({ className, summary, isLoading }: AccountB
           aria-expanded={open}
           className="ml-auto flex items-center gap-2 rounded-[6px] py-1 text-foreground transition-opacity hover:opacity-70"
         >
-          Savings sectors
+          Goals
           <span className="relative grid h-4 w-4 place-items-center" aria-hidden="true">
             <span className="absolute h-px w-2.5 bg-current" />
             <motion.span
@@ -139,7 +148,7 @@ export function AccountBalanceWidget({ className, summary, isLoading }: AccountB
             className="relative overflow-clip"
           >
             <div className="mt-6 border-t border-line-strong/60 pt-6">
-              <SectorsBreakdown summary={summary} />
+              <GoalsBreakdown goals={summary.goals} />
             </div>
           </motion.div>
         )}

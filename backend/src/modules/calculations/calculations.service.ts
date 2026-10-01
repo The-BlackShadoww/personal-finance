@@ -2,6 +2,12 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
 import { AccountService } from '../account/account.service';
+import { InsightsService } from '../insights/insights.service';
+import {
+  transferPurpose,
+  type AccountKind,
+  type AccountNature,
+} from '../accounts/account-kinds';
 
 type MonthlyAggregationRow = {
   year: number | string;
@@ -20,6 +26,13 @@ type CategoryBreakdownRow = {
   count: number | string;
 };
 
+type TransferRouteRow = {
+  from_nature: AccountNature;
+  to_kind: AccountKind;
+  to_nature: AccountNature;
+  total_cents: number | string | null;
+};
+
 type YearMonth = { year: number; month: number };
 
 type MonthTotals = {
@@ -35,6 +48,7 @@ export class CalculationsService {
   constructor(
     @Inject(DB_TOKEN) private readonly db: DrizzleDB,
     private readonly accountService: AccountService,
+    private readonly insightsService: InsightsService,
   ) {}
 
   // Billing period is explicit — no timezone conversion needed.
@@ -105,27 +119,54 @@ export class CalculationsService {
     };
   }
 
+  /** Income and spending in cents for each month in [start, end], zero-filled, oldest first. */
+  async getMonthlyTotals(userId: string, start: YearMonth, end: YearMonth) {
+    const totals = await this.getMonthTotals(userId, start, end);
+    const count = this.monthIndex(end) - this.monthIndex(start) + 1;
+    return Array.from({ length: Math.max(0, count) }, (_value, offset) => {
+      const index = this.monthIndex(start) + offset;
+      const year = Math.floor(index / 12);
+      const month = (index % 12) + 1;
+      const row = totals.get(this.periodKey(year, month)) ?? EMPTY_TOTALS;
+      return {
+        year,
+        month,
+        incomeCents: row.incomeCents,
+        expenseCents: row.expenseCents,
+      };
+    });
+  }
+
   /**
    * Everything the monthly dashboard renders, in one request: the selected
-   * month, the year(s) its six-month trend spans, the category breakdown and
-   * the account balance. The independent queries run concurrently.
+   * month, the year(s) its six-month trend spans, the category breakdown,
+   * the account balance and today's insights (net worth, runway, health
+   * score, next best action). The independent queries run concurrently.
    */
-  async getDashboardOverview(userId: string, year: number, month: number) {
+  async getDashboardOverview(
+    userId: string,
+    year: number,
+    month: number,
+    timezone = 'UTC',
+  ) {
     this.assertMonth(month);
     // The trend covers the six months ending at the selected one, which
     // reaches into the previous year for January–May.
     const includesPreviousYear = month < 6;
     const firstYear = includesPreviousYear ? year - 1 : year;
 
-    const [totals, categoryBreakdown, account] = await Promise.all([
-      this.getMonthTotals(
-        userId,
-        { year: firstYear, month: 1 },
-        { year, month: 12 },
-      ),
-      this.getCategoryBreakdown(userId, year, month),
-      this.accountService.getAccountSummary(userId),
-    ]);
+    const [totals, categoryBreakdown, account, surplusAllocation, insights] =
+      await Promise.all([
+        this.getMonthTotals(
+          userId,
+          { year: firstYear, month: 1 },
+          { year, month: 12 },
+        ),
+        this.getCategoryBreakdown(userId, year, month),
+        this.accountService.getAccountSummary(userId, timezone),
+        this.getSurplusAllocation(userId, year, month),
+        this.insightsService.getDashboardSummary(userId, timezone),
+      ]);
 
     return {
       year,
@@ -139,7 +180,48 @@ export class CalculationsService {
         ? { year: year - 1, ...this.buildPeriod(totals, year - 1, 1, 12) }
         : null,
       categoryBreakdown,
+      surplusAllocation,
       account,
+      insights,
+    };
+  }
+
+  /**
+   * Where the month's surplus went: transfers out of the user's own money
+   * into savings, investments and debt. Transfers are never income or
+   * spending, so this is reported beside the savings rate, not inside it.
+   */
+  async getSurplusAllocation(userId: string, year: number, month: number) {
+    this.assertMonth(month);
+
+    const rows = await this.db.execute<TransferRouteRow>(sql`
+      SELECT f.nature AS from_nature, d.kind AS to_kind, d.nature AS to_nature,
+             SUM(t.amount_cents) AS total_cents
+      FROM transactions t
+      JOIN accounts f ON f.id = t.account_id
+      JOIN accounts d ON d.id = t.counter_account_id
+      WHERE t.user_id = ${userId}
+        AND t.type = 'transfer'
+        AND t.transaction_year = ${year}
+        AND t.transaction_month = ${month}
+        AND t.deleted_at IS NULL
+      GROUP BY 1, 2, 3
+    `);
+
+    const cents = { saving: 0, investing: 0, debt: 0, other: 0 };
+    for (const row of rows) {
+      const purpose = transferPurpose(
+        { nature: row.from_nature },
+        { kind: row.to_kind, nature: row.to_nature },
+      );
+      cents[purpose] += this.toNumber(row.total_cents);
+    }
+
+    return {
+      saved: cents.saving / 100,
+      invested: cents.investing / 100,
+      debtRepaid: cents.debt / 100,
+      total: (cents.saving + cents.investing + cents.debt) / 100,
     };
   }
 
