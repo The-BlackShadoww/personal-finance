@@ -70,7 +70,9 @@ WITH legs AS (
   FROM transactions WHERE deleted_at IS NULL
   UNION ALL
   SELECT user_id, counter_account_id, amount_cents
-  FROM transactions WHERE deleted_at IS NULL AND type = 'transfer'
+  -- Compared as text: 'transfer' may have been added to the enum earlier in
+  -- the same migration transaction (0006), where it cannot be used as a value.
+  FROM transactions WHERE deleted_at IS NULL AND type::text = 'transfer'
 ),
 liquid AS (
   SELECT a.user_id, SUM(a.opening_balance_cents + COALESCE(f.flow, 0)) AS balance
