@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { DB_TOKEN, type DrizzleDB } from '../../db/db.constants';
 import { AccountService } from '../account/account.service';
+import { InsightsService } from '../insights/insights.service';
 import {
   transferPurpose,
   type AccountKind,
@@ -47,6 +48,7 @@ export class CalculationsService {
   constructor(
     @Inject(DB_TOKEN) private readonly db: DrizzleDB,
     private readonly accountService: AccountService,
+    private readonly insightsService: InsightsService,
   ) {}
 
   // Billing period is explicit — no timezone conversion needed.
@@ -119,17 +121,23 @@ export class CalculationsService {
 
   /**
    * Everything the monthly dashboard renders, in one request: the selected
-   * month, the year(s) its six-month trend spans, the category breakdown and
-   * the account balance. The independent queries run concurrently.
+   * month, the year(s) its six-month trend spans, the category breakdown,
+   * the account balance and today's insights (net worth, runway, health
+   * score, next best action). The independent queries run concurrently.
    */
-  async getDashboardOverview(userId: string, year: number, month: number) {
+  async getDashboardOverview(
+    userId: string,
+    year: number,
+    month: number,
+    timezone = 'UTC',
+  ) {
     this.assertMonth(month);
     // The trend covers the six months ending at the selected one, which
     // reaches into the previous year for January–May.
     const includesPreviousYear = month < 6;
     const firstYear = includesPreviousYear ? year - 1 : year;
 
-    const [totals, categoryBreakdown, account, surplusAllocation] =
+    const [totals, categoryBreakdown, account, surplusAllocation, insights] =
       await Promise.all([
         this.getMonthTotals(
           userId,
@@ -137,8 +145,9 @@ export class CalculationsService {
           { year, month: 12 },
         ),
         this.getCategoryBreakdown(userId, year, month),
-        this.accountService.getAccountSummary(userId),
+        this.accountService.getAccountSummary(userId, timezone),
         this.getSurplusAllocation(userId, year, month),
+        this.insightsService.getDashboardSummary(userId, timezone),
       ]);
 
     return {
@@ -155,6 +164,7 @@ export class CalculationsService {
       categoryBreakdown,
       surplusAllocation,
       account,
+      insights,
     };
   }
 

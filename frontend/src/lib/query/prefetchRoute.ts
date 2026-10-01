@@ -6,6 +6,7 @@ import { categoriesQueryOptions } from "@/lib/hooks/useCategories";
 import { prefetchDashboardOverview } from "@/lib/hooks/useDashboardOverview";
 import { planQueryOptions } from "@/lib/hooks/useBudgets";
 import { goalsQueryOptions } from "@/lib/hooks/useGoals";
+import { insightsQueryOptions } from "@/lib/hooks/useInsights";
 import { reportPreviewQueryOptions } from "@/lib/hooks/useReportPreview";
 import { transactionsQueryOptions } from "@/lib/hooks/useTransactions";
 
@@ -41,6 +42,9 @@ export function prefetchRoute(queryClient: QueryClient, href: string) {
       void queryClient.prefetchQuery(transactionsQueryOptions(TRANSACTIONS_FIRST_PAGE));
       void queryClient.prefetchQuery(accountsQueryOptions());
       void queryClient.prefetchQuery(categoriesQueryOptions());
+      break;
+    case "/insights":
+      void queryClient.prefetchQuery(insightsQueryOptions());
       break;
     case "/reports":
       void queryClient.prefetchQuery(reportPreviewQueryOptions(year, month, year, month));

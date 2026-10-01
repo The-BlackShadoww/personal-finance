@@ -51,3 +51,24 @@ export function useRestoreAccount() {
 export function useDeleteAccount() {
   return useAccountMutation((id: string) => accountsApi.remove(id));
 }
+
+export function useAccountValuations(accountId: string | null) {
+  return useQuery({
+    queryKey: [...accountsKeys.all, "valuations", accountId],
+    queryFn: () => accountsApi.listValuations(accountId as string),
+    enabled: accountId !== null,
+  });
+}
+
+// A valuation changes net worth everywhere it is shown.
+export function useUpsertValuation() {
+  return useAccountMutation(({ id, payload }: { id: string; payload: { date: string; value: number; note?: string } }) =>
+    accountsApi.upsertValuation(id, payload),
+  );
+}
+
+export function useDeleteValuation() {
+  return useAccountMutation(({ id, valuationId }: { id: string; valuationId: string }) =>
+    accountsApi.removeValuation(id, valuationId),
+  );
+}

@@ -1,18 +1,19 @@
 "use client";
 
-import { Archive, ArrowCounterClockwise, PencilSimple, Plus, Trash, Warning } from "@phosphor-icons/react";
+import { Archive, ArrowCounterClockwise, ChartLineUp, PencilSimple, Plus, Trash, Warning } from "@phosphor-icons/react";
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
 import { AccountForm } from "@/components/accounts/AccountForm";
 import { CategoryIcon } from "@/components/categories/IconPicker";
 import { Sparkline } from "@/components/charts/Sparkline";
+import { ValuationForm } from "@/components/insights/ValuationForm";
 import { PageHeader } from "@/components/layouts/PageHeader";
 import { AnimatedNumber, Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
-import type { Account, AccountPayload } from "@/lib/api/accounts";
+import { VALUED_KINDS, type Account, type AccountPayload } from "@/lib/api/accounts";
 import { ACCOUNT_KINDS } from "@/lib/accounts";
 import { useAccountSummary } from "@/lib/hooks/useAccount";
 import {
@@ -40,6 +41,7 @@ export default function AccountsPage() {
   const toast = useToast();
   const [editing, setEditing] = useState<Account | "new" | null>(null);
   const [deleting, setDeleting] = useState<Account | null>(null);
+  const [valuing, setValuing] = useState<Account | null>(null);
 
   const accounts = data?.accounts ?? [];
   const assets = accounts.filter((account) => account.nature === "asset");
@@ -98,7 +100,7 @@ export default function AccountsPage() {
     });
   }
 
-  const rowActions = { onEdit: setEditing, onArchive: archive, onRestore: restore, onDelete: setDeleting };
+  const rowActions = { onEdit: setEditing, onArchive: archive, onRestore: restore, onDelete: setDeleting, onValue: setValuing };
 
   return (
     <div className="space-y-10">
@@ -227,6 +229,17 @@ export default function AccountsPage() {
       </Modal>
 
       <Modal
+        open={valuing !== null}
+        title={valuing ? `What is ${valuing.name} worth?` : "Update value"}
+        description="Investments and property change in value without a transaction. Net worth uses the latest value."
+        onClose={() => setValuing(null)}
+      >
+        {valuing ? (
+          <ValuationForm key={valuing.id} account={valuing} onDone={() => setValuing(null)} onCancel={() => setValuing(null)} />
+        ) : null}
+      </Modal>
+
+      <Modal
         open={deleting !== null}
         title="Delete account?"
         size="sm"
@@ -256,6 +269,7 @@ type RowActions = {
   onArchive: (account: Account) => void;
   onRestore: (account: Account) => void;
   onDelete: (account: Account) => void;
+  onValue: (account: Account) => void;
 };
 
 function AccountGroup({
@@ -288,10 +302,11 @@ function AccountGroup({
   );
 }
 
-function AccountRow({ account, index, onEdit, onArchive, onRestore, onDelete }: RowActions & { account: Account; index: number }) {
+function AccountRow({ account, index, onEdit, onArchive, onRestore, onDelete, onValue }: RowActions & { account: Account; index: number }) {
   const reduceMotion = useReducedMotion();
   const meta = ACCOUNT_KINDS[account.kind];
   const archived = account.archivedAt !== null;
+  const valued = account.nature === "asset" && VALUED_KINDS.includes(account.kind);
   const details = [
     meta.label,
     account.interestRateBps !== null ? `${account.interestRateBps / 100}% ${account.nature === "liability" ? "APR" : "yield"}` : null,
@@ -326,8 +341,20 @@ function AccountRow({ account, index, onEdit, onArchive, onRestore, onDelete }: 
         color={account.color}
         className="hidden sm:block"
       />
-      <p className="num w-32 shrink-0 text-right text-[14px]">{formatCents(account.balanceCents)}</p>
+      <div className="w-32 shrink-0 text-right">
+        <p className="num text-[14px]">{formatCents(account.valueCents)}</p>
+        {account.lastValuation ? (
+          <p className="num text-[11px] text-faint" title={`Paid in: ${formatCents(account.balanceCents)}`}>
+            valued {account.lastValuation.date}
+          </p>
+        ) : null}
+      </div>
       <div className="flex shrink-0 gap-0.5 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+        {valued && !archived ? (
+          <IconButton label={`Update the value of ${account.name}`} onClick={() => onValue(account)}>
+            <ChartLineUp size={14} weight="bold" />
+          </IconButton>
+        ) : null}
         <IconButton label={`Edit ${account.name}`} onClick={() => onEdit(account)}>
           <PencilSimple size={14} weight="bold" />
         </IconButton>

@@ -335,6 +335,38 @@ export const accounts = pgTable(
   ],
 );
 
+/**
+ * What an investment, retirement or property account was worth on a date.
+ * Its value later is the latest valuation plus money moved in or out since,
+ * so contributions count before the next valuation is entered.
+ */
+export const accountValuations = pgTable(
+  'account_valuations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    date: date('date', { mode: 'string' }).notNull(),
+    valueCents: bigint('value_cents', { mode: 'number' }).notNull(),
+    note: varchar('note', { length: 200 }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('account_valuations_account_date_idx').on(
+      table.accountId,
+      table.date,
+    ),
+    index('account_valuations_user_id_idx').on(table.userId),
+    check('account_valuations_value_check', sql`${table.valueCents} >= 0`),
+  ],
+);
+
 export const budgets = pgTable(
   'budgets',
   {
@@ -663,7 +695,18 @@ export const accountsRelations = relations(accounts, ({ one, many }) => ({
   incomingTransfers: many(transactions, {
     relationName: 'transaction_counter_account',
   }),
+  valuations: many(accountValuations),
 }));
+
+export const accountValuationsRelations = relations(
+  accountValuations,
+  ({ one }) => ({
+    account: one(accounts, {
+      fields: [accountValuations.accountId],
+      references: [accounts.id],
+    }),
+  }),
+);
 
 export const budgetsRelations = relations(budgets, ({ one }) => ({
   user: one(users, {

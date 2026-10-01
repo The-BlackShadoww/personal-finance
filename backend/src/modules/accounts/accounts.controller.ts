@@ -28,12 +28,17 @@ import {
   ListAccountsQueryDto,
   UpdateAccountDto,
 } from './dto/account.dto';
+import { UpsertValuationDto } from './dto/valuation.dto';
+import { ValuationsService } from './valuations.service';
 
 @ApiTags('Accounts')
 @ApiBearerAuth('access-token')
 @Controller('accounts')
 export class AccountsController {
-  constructor(private readonly accountsService: AccountsService) {}
+  constructor(
+    private readonly accountsService: AccountsService,
+    private readonly valuationsService: ValuationsService,
+  ) {}
 
   @ApiOperation({
     summary: 'List accounts with balances',
@@ -122,5 +127,51 @@ export class AccountsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.accountsService.remove(user.id, id);
+  }
+
+  @ApiOperation({
+    summary: "List an account's valuations",
+    description:
+      'Market values entered for an investment, retirement, property or other asset account, newest first.',
+  })
+  @ApiParam({ name: 'id', description: 'Account UUID' })
+  @Get(':id/valuations')
+  listValuations(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.valuationsService.list(user.id, id);
+  }
+
+  @ApiOperation({
+    summary: 'Record what an account is worth',
+    description:
+      "Sets the account's market value on a day (replacing an earlier value for that day). " +
+      'Its value afterwards is this plus money moved in or out since, and net worth uses it ' +
+      'instead of the book balance.',
+  })
+  @ApiParam({ name: 'id', description: 'Account UUID' })
+  @ApiBody({ type: UpsertValuationDto })
+  @ApiResponse({ status: 400, type: ApiErrorResponse })
+  @Post(':id/valuations')
+  upsertValuation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpsertValuationDto,
+  ) {
+    return this.valuationsService.upsert(user.id, user.timezone, id, dto);
+  }
+
+  @ApiOperation({ summary: 'Delete a valuation' })
+  @ApiParam({ name: 'id', description: 'Account UUID' })
+  @ApiParam({ name: 'valuationId', description: 'Valuation UUID' })
+  @ApiResponse({ status: 404, type: ApiErrorResponse })
+  @Delete(':id/valuations/:valuationId')
+  removeValuation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('valuationId', ParseUUIDPipe) valuationId: string,
+  ) {
+    return this.valuationsService.remove(user.id, id, valuationId);
   }
 }

@@ -4,7 +4,7 @@ This plan covers every feature proposed in the product review (Tiers 1–3) and
 builds them so the app actively guides users through the evidence-based order of
 financial operations and the behavioural rules that make them stick.
 
-> **Status:** Phases 0–4 implemented; Phases 5–7 proposed · **Scope:** backend (NestJS + Drizzle) and frontend (Next.js)
+> **Status:** Phases 0–5 implemented; Phases 6–7 proposed · **Scope:** backend (NestJS + Drizzle) and frontend (Next.js)
 > · **Out of scope:** bank-feed integrations, multi-currency within one user,
 > ticker-level market prices.
 
@@ -503,6 +503,27 @@ transactions: unique (recurring_rule_id, occurrence_date) WHERE recurring_rule_i
 ---
 
 ## Phase 5 — Insights
+
+> **Done.** Migration `0010_phase5_insights`. Differences from the sketch below:
+> - An account's value is its latest valuation **plus money moved in or out since**, so a
+>   contribution counts before the next valuation is entered. Valuations are limited to
+>   investment, retirement, property and other asset accounts, so liquid money and
+>   available-to-spend never depend on them. Account totals (and the Accounts page) use values.
+> - Net worth history is computed in TypeScript from per-day account flows plus valuations
+>   (`insights/calc/net-worth.ts`), not a `generate_series` query; it is not cached — the whole
+>   overview runs in tens of milliseconds on real data.
+> - Credit cards with no APR entered are treated as high-interest. The employer-match step
+>   compares investing transfers with the match percentage of income (the app cannot see payroll).
+> - Health metrics that need history require 3 active months in the last 6; high-interest debt
+>   and insurance are scored without history. Net-worth trend is a least-squares slope scored
+>   between −10% and +10% of monthly income per month.
+> - Next Best Action adds a "start tracking" step when there is no history. Deep links go to the
+>   relevant page rather than pre-filling forms.
+> - The low-balance threshold stays user-level (it applies to available-to-spend), not per account.
+> - `GET /insights` (overview) and `GET /insights/net-worth`; the dashboard overview gains an
+>   `insights` block (net worth + 6-month trend, runway, score and band, next action, spending
+>   insights, valuation prompts). Valuations: `GET|POST /accounts/:id/valuations`,
+>   `DELETE /accounts/:id/valuations/:valuationId`.
 
 *Review items #5, #6, #8, #9 plus the Next Best Action engine.* New `InsightsModule`
 (`backend/src/modules/insights/`) with pure calculators in `insights/calc/*.ts`.

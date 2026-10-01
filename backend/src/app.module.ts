@@ -20,6 +20,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AccountModule } from './modules/account/account.module';
 import { FinancialProfileModule } from './modules/financial-profile/financial-profile.module';
 import { GoalsModule } from './modules/goals/goals.module';
+import { InsightsModule } from './modules/insights/insights.module';
 import { RecurringModule } from './modules/recurring/recurring.module';
 import { HealthModule } from './modules/health/health.module';
 
@@ -80,6 +81,7 @@ import { HealthModule } from './modules/health/health.module';
     FinancialProfileModule,
     GoalsModule,
     RecurringModule,
+    InsightsModule,
     HealthModule,
   ],
   providers: [

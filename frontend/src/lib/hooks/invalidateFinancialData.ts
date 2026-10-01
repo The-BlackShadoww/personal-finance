@@ -27,6 +27,8 @@ export function invalidateFinancialData(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: ["budgets"] }),
     // Recurring rules and their next dates (key owned by useRecurring).
     queryClient.invalidateQueries({ queryKey: ["recurring"] }),
+    // Net worth, health score and spending insights (key owned by useInsights).
+    queryClient.invalidateQueries({ queryKey: ["insights"] }),
     // Its income-stability assessment is computed from transactions.
     queryClient.invalidateQueries({ queryKey: financialProfileKeys.all }),
   ]);

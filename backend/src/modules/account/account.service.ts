@@ -28,9 +28,9 @@ export class AccountService {
 
   // "Balance" is liquid money (cash, bank, mobile wallets, savings). Moving money into investments or paying down debt
   // leaves it without counting as spending. "Available" is the part of it not set aside for goals.
-  async getCurrentBalance(userId: string) {
+  async getCurrentBalance(userId: string, timezone?: string) {
     const [{ accounts, totals }, flowRows, config, earmarks] = await Promise.all([
-      this.accountsService.getBalances(userId),
+      this.accountsService.getBalances(userId, timezone),
       this.db.execute<{ total_income_cents: number | string; total_expense_cents: number | string }>(sql`
         SELECT COALESCE(SUM(amount_cents) FILTER (WHERE type = 'income'), 0) AS total_income_cents,
                COALESCE(SUM(amount_cents) FILTER (WHERE type = 'expense'), 0) AS total_expense_cents
@@ -52,8 +52,8 @@ export class AccountService {
       netWorthCents: totals.netWorthCents, assetsCents: totals.assetsCents, liabilitiesCents: totals.liabilitiesCents };
   }
 
-  async getAccountSummary(userId: string) {
-    const balance = await this.getCurrentBalance(userId);
+  async getAccountSummary(userId: string, timezone?: string) {
+    const balance = await this.getCurrentBalance(userId, timezone);
     return { ...balance, currentBalanceDollars: balance.currentBalanceCents / 100 };
   }
 

@@ -11,6 +11,9 @@ import { ChartEmpty, Legend } from "@/components/charts/core";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { Gauge } from "@/components/charts/Gauge";
 import { AccountBalanceWidget } from "@/components/dashboard/AccountBalanceWidget";
+import { InsightsRow } from "@/components/dashboard/InsightsRow";
+import { SpendingInsightList } from "@/components/insights/SpendingInsightList";
+import { ValuationPrompts } from "@/components/insights/ValuationPrompts";
 import { PeriodSummaryCards } from "@/components/dashboard/PeriodSummaryCards";
 import { UpcomingPanel } from "@/components/dashboard/UpcomingPanel";
 import { Panel, PeriodStepper } from "@/components/dashboard/primitives";
@@ -141,6 +144,11 @@ function MonthlyView() {
   const savingsRate = Number(monthly?.savingsRate ?? 0);
   const monthLabel = selectedDate.toLocaleString("en-US", { month: "long", year: "numeric" });
   const hasFlow = points.some((point) => point.values.income || point.values.expense);
+  const dashboardInsights = overview.data?.insights;
+  const worthALook =
+    dashboardInsights && (dashboardInsights.insights.length || dashboardInsights.valuationPrompts.length)
+      ? dashboardInsights
+      : null;
 
   return (
     <div
@@ -202,6 +210,10 @@ function MonthlyView() {
           </section>
         </StaggerItem>
       </Stagger>
+
+      <Reveal>
+        <InsightsRow insights={overview.data?.insights} isLoading={overview.isLoading} />
+      </Reveal>
 
       <PeriodSummaryCards
         totalIncome={monthly?.totalIncome ?? 0}
@@ -345,9 +357,21 @@ function MonthlyView() {
         </Reveal>
       </div>
 
-      <Reveal>
-        <UpcomingPanel />
-      </Reveal>
+      <div className="grid gap-3 lg:grid-cols-12">
+        <Reveal className={worthALook ? "lg:col-span-7" : "lg:col-span-12"}>
+          <UpcomingPanel />
+        </Reveal>
+        {worthALook ? (
+          <Reveal className="lg:col-span-5" delay={0.08}>
+            <Panel title="Worth a look" subtitle="Unusual spending lately" className="h-full">
+              <div className="space-y-5">
+                <SpendingInsightList insights={worthALook.insights} />
+                <ValuationPrompts prompts={worthALook.valuationPrompts} />
+              </div>
+            </Panel>
+          </Reveal>
+        ) : null}
+      </div>
     </div>
   );
 }

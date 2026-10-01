@@ -22,17 +22,31 @@ export class CalculationsController {
 
   @ApiOperation({
     summary: 'Get monthly financial summary',
-    description: 'Returns total income, total expenses, net savings, savings rate, ' +
+    description:
+      'Returns total income, total expenses, net savings, savings rate, ' +
       'and transaction count for a specific month.',
   })
   @ApiQuery({ name: 'year', required: true, example: 2025 })
-  @ApiQuery({ name: 'month', required: true, example: 1, description: '1 = January, 12 = December' })
+  @ApiQuery({
+    name: 'month',
+    required: true,
+    example: 1,
+    description: '1 = January, 12 = December',
+  })
   @ApiResponse({
     status: 200,
     description: 'Monthly summary',
     schema: {
       example: {
-        data: { year: 2025, month: 1, totalIncome: 2500.00, totalExpense: 1800.00, savings: 700.00, savingsRate: '28.0', transactionCount: 24 },
+        data: {
+          year: 2025,
+          month: 1,
+          totalIncome: 2500.0,
+          totalExpense: 1800.0,
+          savings: 700.0,
+          savingsRate: '28.0',
+          transactionCount: 24,
+        },
         meta: { timestamp: '...' },
       },
     },
@@ -48,12 +62,21 @@ export class CalculationsController {
 
   @ApiOperation({
     summary: 'Get quarterly financial summary',
-    description: 'Returns totals for the specified quarter with a monthly breakdown. ' +
+    description:
+      'Returns totals for the specified quarter with a monthly breakdown. ' +
       'Q1 = Jan–Mar, Q2 = Apr–Jun, Q3 = Jul–Sep, Q4 = Oct–Dec.',
   })
   @ApiQuery({ name: 'year', required: true, example: 2025 })
-  @ApiQuery({ name: 'quarter', required: true, example: 1, description: '1 = Q1 (Jan-Mar), 4 = Q4 (Oct-Dec)' })
-  @ApiResponse({ status: 200, description: 'Quarterly summary with monthly breakdown' })
+  @ApiQuery({
+    name: 'quarter',
+    required: true,
+    example: 1,
+    description: '1 = Q1 (Jan-Mar), 4 = Q4 (Oct-Dec)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Quarterly summary with monthly breakdown',
+  })
   @Get('quarterly')
   getQuarterlySummary(
     @CurrentUser() user: AuthenticatedUser,
@@ -65,10 +88,14 @@ export class CalculationsController {
 
   @ApiOperation({
     summary: 'Get yearly financial summary',
-    description: 'Returns annual totals with a month-by-month breakdown for all 12 months.',
+    description:
+      'Returns annual totals with a month-by-month breakdown for all 12 months.',
   })
   @ApiQuery({ name: 'year', required: true, example: 2025 })
-  @ApiResponse({ status: 200, description: 'Yearly summary with monthly breakdown' })
+  @ApiResponse({
+    status: 200,
+    description: 'Yearly summary with monthly breakdown',
+  })
   @Get('yearly')
   getYearlySummary(
     @CurrentUser() user: AuthenticatedUser,
@@ -107,7 +134,8 @@ export class CalculationsController {
     summary: 'Get everything the monthly dashboard shows',
     description:
       'Returns the monthly summary, yearly breakdown (plus the previous year when the ' +
-      'six-month trend crosses into it), category breakdown and account summary in one response.',
+      "six-month trend crosses into it), category breakdown, account summary and today's insights " +
+      '(net worth, runway, health score, next best action, spending insights) in one response.',
   })
   @ApiQuery({ name: 'year', required: true, example: 2025 })
   @ApiQuery({ name: 'month', required: true, example: 1 })
@@ -120,12 +148,18 @@ export class CalculationsController {
   ) {
     // Opening the dashboard posts due recurring entries (salary, bills) first.
     await this.recurringService.materializeDue(user.id, user.timezone);
-    return this.calculationsService.getDashboardOverview(user.id, year, month);
+    return this.calculationsService.getDashboardOverview(
+      user.id,
+      year,
+      month,
+      user.timezone,
+    );
   }
 
   @ApiOperation({
     summary: 'Get spending breakdown by category',
-    description: 'Returns total amount and transaction count grouped by category for the specified month. Results are sorted by total amount descending.',
+    description:
+      'Returns total amount and transaction count grouped by category for the specified month. Results are sorted by total amount descending.',
   })
   @ApiQuery({ name: 'year', required: true, example: 2025 })
   @ApiQuery({ name: 'month', required: true, example: 1 })
@@ -135,7 +169,14 @@ export class CalculationsController {
     schema: {
       example: {
         data: [
-          { categoryName: 'Groceries', color: '#dc2626', icon: 'shopping-cart', type: 'expense', totalCents: 45000, count: 8 },
+          {
+            categoryName: 'Groceries',
+            color: '#dc2626',
+            icon: 'shopping-cart',
+            type: 'expense',
+            totalCents: 45000,
+            count: 8,
+          },
         ],
         meta: { timestamp: '...' },
       },

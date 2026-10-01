@@ -18,12 +18,35 @@ import {
 } from './calc/balances';
 import { CreateAccountDto, UpdateAccountDto } from './dto/account.dto';
 
+/** Cash into (+) or out of (−) an account on a calendar day ("YYYY-MM-DD"). */
+export type DailyFlow = { day: string; flowCents: number };
+
 type AccountRow = typeof accounts.$inferSelect;
 
-export type AccountWithBalance = AccountRow & { balanceCents: number };
+export type AccountValuationSummary = {
+  /** "YYYY-MM-DD" of the latest valuation. */
+  date: string;
+  valueCents: number;
+};
+
+export type AccountWithBalance = AccountRow & {
+  /** Book balance: opening balance plus recorded entries. */
+  balanceCents: number;
+  /**
+   * What the account is worth: the latest valuation plus money moved in or
+   * out since, or the book balance when it has never been valued.
+   */
+  valueCents: number;
+  lastValuation: AccountValuationSummary | null;
+};
+
+type LatestValuations = Map<
+  string,
+  AccountValuationSummary & { flowAfterCents: number }
+>;
 
 export type AccountTotals = {
-  /** Σ asset balances. */
+  /** Σ asset values (valuations where entered, else balances). */
   assetsCents: number;
   /** Σ liability balances (amount owed). */
   liabilitiesCents: number;
@@ -64,7 +87,7 @@ export class AccountsService {
     await this.ensureDefaultAccount(userId);
 
     const zone = safeTimezone(timezone);
-    const [rows, flows] = await Promise.all([
+    const [rows, flows, valuations] = await Promise.all([
       this.findAll(userId),
       this.db.execute<FlowRow>(sql`
         WITH legs AS (${this.legsSql(userId)})
@@ -74,6 +97,7 @@ export class AccountsService {
         FROM legs
         GROUP BY 1, 2
       `),
+      this.latestValuations(userId, zone),
     ]);
 
     const flowsByAccount = new Map<string, MonthlyFlow[]>();
@@ -103,6 +127,7 @@ export class AccountsService {
       return {
         ...account,
         balanceCents,
+        ...this.marketValue(account, balanceCents, valuations),
         trend: balanceTrend(account.nature, balanceCents, accountFlows, months),
       };
     });
@@ -116,32 +141,43 @@ export class AccountsService {
     };
   }
 
-  /** Every account with its current balance; no trend. */
-  async getBalances(userId: string): Promise<{
+  /**
+   * Every account with its current balance and value; no trend. The
+   * timezone decides which day an entry falls on relative to a valuation.
+   */
+  async getBalances(
+    userId: string,
+    timezone = 'UTC',
+  ): Promise<{
     accounts: AccountWithBalance[];
     totals: AccountTotals;
   }> {
     await this.ensureDefaultAccount(userId);
 
-    const [rows, flows] = await Promise.all([
+    const [rows, flows, valuations] = await Promise.all([
       this.findAll(userId),
       this.db.execute<{ account_id: string; flow_cents: number | string }>(sql`
         WITH legs AS (${this.legsSql(userId)})
         SELECT account_id, SUM(flow_cents) AS flow_cents FROM legs GROUP BY 1
       `),
+      this.latestValuations(userId, safeTimezone(timezone)),
     ]);
 
     const flowByAccount = new Map(
       flows.map((row) => [row.account_id, Number(row.flow_cents)]),
     );
-    const withBalances = rows.map((account) => ({
-      ...account,
-      balanceCents: naturalBalance(
+    const withBalances = rows.map((account) => {
+      const balanceCents = naturalBalance(
         account.nature,
         account.openingBalanceCents,
         flowByAccount.get(account.id) ?? 0,
-      ),
-    }));
+      );
+      return {
+        ...account,
+        balanceCents,
+        ...this.marketValue(account, balanceCents, valuations),
+      };
+    });
 
     return { accounts: withBalances, totals: this.totals(withBalances) };
   }
@@ -353,6 +389,91 @@ export class AccountsService {
   }
 
   /**
+   * Each valued account's latest valuation and the net money moved in or out
+   * of it on later days (in the user's timezone).
+   */
+  private async latestValuations(
+    userId: string,
+    zone: string,
+  ): Promise<LatestValuations> {
+    const rows = await this.db.execute<{
+      account_id: string;
+      date: string;
+      value_cents: number | string;
+      flow_after_cents: number | string;
+    }>(sql`
+      WITH latest AS (
+        SELECT DISTINCT ON (account_id) account_id, date, value_cents
+        FROM account_valuations
+        WHERE user_id = ${userId}
+        ORDER BY account_id, date DESC
+      ),
+      legs AS (${this.legsSql(userId)})
+      SELECT l.account_id, l.date::text AS date, l.value_cents,
+             COALESCE(SUM(legs.flow_cents) FILTER (
+               WHERE (legs.date AT TIME ZONE ${zone})::date > l.date
+             ), 0) AS flow_after_cents
+      FROM latest l
+      LEFT JOIN legs ON legs.account_id = l.account_id
+      GROUP BY 1, 2, 3
+    `);
+    return new Map(
+      rows.map((row) => [
+        row.account_id,
+        {
+          date: row.date,
+          valueCents: Number(row.value_cents),
+          flowAfterCents: Number(row.flow_after_cents),
+        },
+      ]),
+    );
+  }
+
+  private marketValue(
+    account: AccountRow,
+    balanceCents: number,
+    valuations: LatestValuations,
+  ): Pick<AccountWithBalance, 'valueCents' | 'lastValuation'> {
+    const valuation =
+      account.nature === 'asset' ? valuations.get(account.id) : undefined;
+    if (!valuation) return { valueCents: balanceCents, lastValuation: null };
+    return {
+      valueCents: valuation.valueCents + valuation.flowAfterCents,
+      lastValuation: { date: valuation.date, valueCents: valuation.valueCents },
+    };
+  }
+
+  /**
+   * Net cash into (+) or out of (−) each account per calendar day in the
+   * user's timezone, oldest first. Feeds the net-worth history.
+   */
+  async getDailyFlows(
+    userId: string,
+    timezone: string,
+  ): Promise<Map<string, DailyFlow[]>> {
+    const zone = safeTimezone(timezone);
+    const rows = await this.db.execute<{
+      account_id: string;
+      day: string;
+      flow_cents: number | string;
+    }>(sql`
+      WITH legs AS (${this.legsSql(userId)})
+      SELECT account_id, (date AT TIME ZONE ${zone})::date::text AS day,
+             SUM(flow_cents) AS flow_cents
+      FROM legs
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `);
+    const byAccount = new Map<string, DailyFlow[]>();
+    for (const row of rows) {
+      const list = byAccount.get(row.account_id) ?? [];
+      list.push({ day: row.day, flowCents: Number(row.flow_cents) });
+      byAccount.set(row.account_id, list);
+    }
+    return byAccount;
+  }
+
+  /**
    * One row per side of every live entry, as cash flowing into (+) or out of
    * (−) an account. Income/expense have one side; transfers have two.
    */
@@ -377,12 +498,11 @@ export class AccountsService {
       liquidCents: 0,
     };
     for (const account of rows) {
-      if (account.nature === 'asset')
-        totals.assetsCents += account.balanceCents;
-      else totals.liabilitiesCents += account.balanceCents;
+      if (account.nature === 'asset') totals.assetsCents += account.valueCents;
+      else totals.liabilitiesCents += account.valueCents;
       totals.netWorthCents += netWorthContribution(
         account.nature,
-        account.balanceCents,
+        account.valueCents,
       );
       if (account.isLiquid && account.nature === 'asset') {
         totals.liquidCents += account.balanceCents;

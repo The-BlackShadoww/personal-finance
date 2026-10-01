@@ -29,8 +29,14 @@ export interface Account {
   /** New transactions default to this account. */
   isDefault: boolean;
   openingBalanceCents: number;
-  /** Owned for assets, owed for liabilities. */
+  /** Book balance: owned for assets, owed for liabilities. */
   balanceCents: number;
+  /**
+   * What the account is worth: its latest valuation plus money moved in or
+   * out since, or the book balance when it has never been valued.
+   */
+  valueCents: number;
+  lastValuation: { date: string; valueCents: number } | null;
   /** Month-end balances, oldest first ("YYYY-MM"). */
   trend: Array<{ month: string; balanceCents: number }>;
   interestRateBps: number | null;
@@ -43,6 +49,18 @@ export interface Account {
   sortOrder: number;
   archivedAt: string | null;
 }
+
+export interface AccountValuation {
+  id: string;
+  accountId: string;
+  /** "YYYY-MM-DD". */
+  date: string;
+  valueCents: number;
+  note: string | null;
+}
+
+/** Kinds whose market value can drift from what was paid in. */
+export const VALUED_KINDS: readonly AccountKind[] = ["investment", "retirement", "property", "other"];
 
 export interface AccountTotals {
   assetsCents: number;
@@ -109,6 +127,24 @@ export const accountsApi = {
 
   async remove(id: string): Promise<{ success: boolean }> {
     const response = await apiClient<ApiResponse<{ success: boolean }>>(`/accounts/${id}`, { method: "DELETE" });
+    return response.data;
+  },
+
+  async listValuations(id: string): Promise<AccountValuation[]> {
+    const response = await apiClient<ApiResponse<AccountValuation[]>>(`/accounts/${id}/valuations`);
+    return response.data;
+  },
+
+  /** `value` in major units; replaces an earlier value for the same day. */
+  async upsertValuation(id: string, payload: { date: string; value: number; note?: string }): Promise<AccountValuation> {
+    const response = await apiClient<ApiResponse<AccountValuation>>(`/accounts/${id}/valuations`, json("POST", payload));
+    return response.data;
+  },
+
+  async removeValuation(id: string, valuationId: string): Promise<{ success: boolean }> {
+    const response = await apiClient<ApiResponse<{ success: boolean }>>(`/accounts/${id}/valuations/${valuationId}`, {
+      method: "DELETE",
+    });
     return response.data;
   },
 };

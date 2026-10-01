@@ -21,6 +21,7 @@ export const NAVIGATION = [
   { href: "/goals", label: "Goals" },
   { href: "/transactions", label: "Transactions" },
   { href: "/budgets", label: "Plan" },
+  { href: "/insights", label: "Insights" },
   { href: "/reports", label: "Reports" },
   { href: "/settings", label: "Settings" },
 ];
