@@ -10,6 +10,7 @@ const protectedRoutes = [
   "/review",
   "/reports",
   "/settings",
+  "/guide",
 ];
 const authRoutes = ["/login", "/register"];
 

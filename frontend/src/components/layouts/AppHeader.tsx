@@ -1,6 +1,6 @@
 "use client";
 
-import { GearSix, List, Plus, SignOut, X } from "@phosphor-icons/react";
+import { BookOpenText, GearSix, List, Plus, SignOut, X } from "@phosphor-icons/react";
 import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion, useScroll } from "framer-motion";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -172,6 +172,9 @@ export function AppHeader() {
               <Link href="/transactions" className={buttonClass({ size: "lg" })}>
                 <Plus size={16} weight="bold" /> Transactions
               </Link>
+              <Link href="/guide" className={buttonClass({ variant: "secondary", size: "lg" })}>
+                <BookOpenText size={16} weight="bold" /> Guide
+              </Link>
               <button
                 type="button"
                 disabled={isLoggingOut}
@@ -249,6 +252,14 @@ function UserMenu({ onLogout, isLoggingOut }: { onLogout: () => void; isLoggingO
                 className="flex items-center gap-2.5 rounded-[6px] px-3 py-2 text-[14px] text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
               >
                 <GearSix size={15} weight="bold" /> Settings
+              </Link>
+              <Link
+                href="/guide"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 rounded-[6px] px-3 py-2 text-[14px] text-muted transition-colors hover:bg-surface-2 hover:text-foreground"
+              >
+                <BookOpenText size={15} weight="bold" /> Guide
               </Link>
               <button
                 type="button"
