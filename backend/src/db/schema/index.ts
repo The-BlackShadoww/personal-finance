@@ -275,7 +275,10 @@ export const recurringRules = pgTable(
         THEN ${table.counterAccountId} IS NOT NULL AND ${table.categoryId} IS NULL
         ELSE ${table.counterAccountId} IS NULL AND ${table.categoryId} IS NOT NULL END`,
     ),
-    check('recurring_rules_amount_positive_check', sql`${table.amountCents} > 0`),
+    check(
+      'recurring_rules_amount_positive_check',
+      sql`${table.amountCents} > 0`,
+    ),
     check(
       'recurring_rules_period_offset_check',
       sql`${table.periodOffsetMonths} BETWEEN -1 AND 1`,
@@ -367,6 +370,33 @@ export const accountValuations = pgTable(
   ],
 );
 
+/** The mix of asset classes the user aims to hold across investments. */
+export const targetAllocations = pgTable(
+  'target_allocations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    assetClass: assetClassEnum('asset_class').notNull(),
+    // Share of invested money, in basis points (6000 = 60%).
+    percentBps: integer('percent_bps').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('target_allocations_user_class_idx').on(
+      table.userId,
+      table.assetClass,
+    ),
+    check(
+      'target_allocations_percent_check',
+      sql`${table.percentBps} BETWEEN 1 AND 10000`,
+    ),
+  ],
+);
+
 export const budgets = pgTable(
   'budgets',
   {
@@ -438,18 +468,33 @@ export const monthlyPlans = pgTable(
 
 export const accountConfig = pgTable('account_config', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
-  initialBalanceCents: bigint('initial_balance_cents', { mode: 'number' }).notNull().default(0),
-  lowBalanceThresholdCents: bigint('low_balance_threshold_cents', { mode: 'number' }).notNull().default(500000),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  userId: uuid('user_id')
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  initialBalanceCents: bigint('initial_balance_cents', { mode: 'number' })
+    .notNull()
+    .default(0),
+  lowBalanceThresholdCents: bigint('low_balance_threshold_cents', {
+    mode: 'number',
+  })
+    .notNull()
+    .default(500000),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 export const savingsSectors = pgTable(
   'savings_sectors',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
     name: varchar('name', { length: 100 }).notNull(),
     percentage: integer('percentage').notNull(),
     color: varchar('color', { length: 7 }).notNull().default('#6b7280'),
@@ -457,8 +502,12 @@ export const savingsSectors = pgTable(
     targetAmountCents: bigint('target_amount_cents', { mode: 'number' }),
     sortOrder: integer('sort_order').notNull().default(0),
     isDefault: boolean('is_default').notNull().default(false),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     index('savings_sectors_user_id_idx').on(table.userId),
@@ -526,7 +575,9 @@ export const goals = pgTable(
     categoryId: uuid('category_id').references(() => categories.id),
     // Order in which income is shared out; lower first.
     priority: integer('priority').notNull().default(0),
-    fundingRule: goalFundingRuleEnum('funding_rule').notNull().default('manual'),
+    fundingRule: goalFundingRuleEnum('funding_rule')
+      .notNull()
+      .default('manual'),
     fundingPercentBps: integer('funding_percent_bps'),
     fundingAmountCents: bigint('funding_amount_cents', { mode: 'number' }),
     color: varchar('color', { length: 7 }).notNull().default('#16a34a'),
@@ -746,11 +797,23 @@ export const financialProfilesRelations = relations(
 
 export const goalsRelations = relations(goals, ({ one, many }) => ({
   user: one(users, { fields: [goals.userId], references: [users.id] }),
-  account: one(accounts, { fields: [goals.accountId], references: [accounts.id] }),
-  category: one(categories, { fields: [goals.categoryId], references: [categories.id] }),
+  account: one(accounts, {
+    fields: [goals.accountId],
+    references: [accounts.id],
+  }),
+  category: one(categories, {
+    fields: [goals.categoryId],
+    references: [categories.id],
+  }),
   contributions: many(goalContributions),
 }));
 
-export const goalContributionsRelations = relations(goalContributions, ({ one }) => ({
-  goal: one(goals, { fields: [goalContributions.goalId], references: [goals.id] }),
-}));
+export const goalContributionsRelations = relations(
+  goalContributions,
+  ({ one }) => ({
+    goal: one(goals, {
+      fields: [goalContributions.goalId],
+      references: [goals.id],
+    }),
+  }),
+);

@@ -6,18 +6,8 @@ import { CategoryIcon } from "@/components/categories/IconPicker";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import type { Account, AccountKind, AccountPayload, AssetClass } from "@/lib/api/accounts";
-import { ACCOUNT_KINDS, ASSET_KINDS, LIABILITY_KINDS } from "@/lib/accounts";
+import { ACCOUNT_KINDS, ASSET_CLASSES, ASSET_KINDS, LIABILITY_KINDS } from "@/lib/accounts";
 import { currencySymbol, parseAmountInput } from "@/lib/utils/money";
-
-const ASSET_CLASSES: Array<{ value: AssetClass; label: string }> = [
-  { value: "equity", label: "Shares / equity funds" },
-  { value: "bond", label: "Bonds / fixed income" },
-  { value: "mixed", label: "Mixed / balanced" },
-  { value: "cash", label: "Cash-like" },
-  { value: "real_estate", label: "Real estate" },
-  { value: "gold", label: "Gold" },
-  { value: "other", label: "Other" },
-];
 
 type FormState = {
   name: string;

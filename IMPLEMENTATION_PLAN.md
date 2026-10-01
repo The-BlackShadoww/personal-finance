@@ -4,7 +4,7 @@ This plan covers every feature proposed in the product review (Tiers 1–3) and
 builds them so the app actively guides users through the evidence-based order of
 financial operations and the behavioural rules that make them stick.
 
-> **Status:** Phases 0–5 implemented; Phases 6–7 proposed · **Scope:** backend (NestJS + Drizzle) and frontend (Next.js)
+> **Status:** Phases 0–6 implemented; Phase 7 proposed · **Scope:** backend (NestJS + Drizzle) and frontend (Next.js)
 > · **Out of scope:** bank-feed integrations, multi-currency within one user,
 > ticker-level market prices.
 
@@ -621,6 +621,22 @@ Computed on request in SQL; results limited to the top 3 to avoid noise:
 ---
 
 ## Phase 6 — Wealth building
+
+> **Done.** Migration `0011_phase6_wealth` (`target_allocations`). The views are tabs on
+> **Insights** (Health · Debt · Independence · Investments · Income), fed by one `GET /wealth`.
+> Differences from the sketch below:
+> - "Apply this plan" creates one monthly recurring transfer per debt (from the default
+>   account, starting next month, confirm-each-month, ending the payoff month). No
+>   `debt_payoff` goal: goals earmark money held in asset accounts, which a debt is not.
+>   Rules use the first month's amounts; the user raises the next debt's payment when one clears.
+> - Debts with no minimum assume 2% of the balance; no APR is treated as 0% (both flagged).
+> - Coast FI asks for the user's age in the calculator (the app stores no birth date).
+> - Returns are Modified Dietz over the last 365 days; only transfers count as contributions
+>   (dividends or fees recorded as income/expense in the account are part of the return).
+>   Allocation covers investment and retirement accounts; property is excluded. Fee drag
+>   compares against a 0.2% fund at the expected return. Rebalancing advice: "yearly review"
+>   above 5 points of drift, "now" above 10 (there is no record of the last rebalance).
+> - Income growth compares the last 12 complete months with the 12 before.
 
 *Review items #10, #11, #12, #15.* Pure calculators live in `frontend/src/lib/finance/`
 (interactive sliders need instant recomputation) and are mirrored in the backend

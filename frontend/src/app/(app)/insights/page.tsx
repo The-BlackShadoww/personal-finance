@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
 import { AreaChart } from "@/components/charts/AreaChart";
 import { ChartEmpty, Legend } from "@/components/charts/core";
 import { ErrorNote, Panel, StatTile } from "@/components/dashboard/primitives";
@@ -13,7 +14,12 @@ import { PageHeader } from "@/components/layouts/PageHeader";
 import { AnimatedNumber, Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { HEALTH_BANDS, type InsightsOverview } from "@/lib/api/insights";
+import { DebtPlanner } from "@/components/wealth/DebtPlanner";
+import { FiCalculator } from "@/components/wealth/FiCalculator";
+import { IncomePanel } from "@/components/wealth/IncomePanel";
+import { InvestmentsPanel } from "@/components/wealth/InvestmentsPanel";
 import { useInsights } from "@/lib/hooks/useInsights";
+import { useWealth } from "@/lib/hooks/useWealth";
 import { cn } from "@/lib/utils/cn";
 import { formatCents, formatMoney } from "@/lib/utils/money";
 
@@ -24,18 +30,70 @@ const monthLabel = (month: string, style: "short" | "long") => {
   return new Date(year, m - 1, 1).toLocaleString("en-US", style === "short" ? { month: "short" } : { month: "long", year: "numeric" });
 };
 
+type Tab = "health" | "debt" | "fi" | "investments" | "income";
+
+const TABS: Array<{ value: Tab; label: string }> = [
+  { value: "health", label: "Health" },
+  { value: "debt", label: "Debt" },
+  { value: "fi", label: "Independence" },
+  { value: "investments", label: "Investments" },
+  { value: "income", label: "Income" },
+];
+
 export default function InsightsPage() {
-  const [range, setRange] = useState<Range>("24");
-  const { data, isLoading, isError, error, isPlaceholderData } = useInsights(Number(range));
+  return (
+    <Suspense fallback={<div className="skeleton h-[480px]" />}>
+      <InsightsContent />
+    </Suspense>
+  );
+}
+
+function InsightsContent() {
+  // The active tab lives in the URL so links (e.g. the next best action) can target it.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const requested = searchParams.get("tab");
+  const tab = TABS.find((option) => option.value === requested)?.value ?? "health";
+
+  function selectTab(next: Tab) {
+    router.replace(`/insights?tab=${next}`, { scroll: false });
+  }
 
   return (
     <div className="space-y-10">
       <PageHeader
         eyebrow="Insights"
         title="How your money is doing."
-        aside="One score, one next step, and what sits behind both."
+        aside="One score, one next step, and the tools to plan the rest."
+        actions={<SegmentedControl label="Insights section" value={tab} onChange={selectTab} options={TABS} />}
       />
+      {tab === "health" ? <HealthTab /> : <WealthTab tab={tab} />}
 
+      <p className="border-t border-line pt-6 text-[12px] leading-relaxed text-faint">
+        Educational guidance based on widely used personal-finance rules. Not individual investment, tax or legal advice.
+        Ratios use the take-home income you record, which makes every target stricter than the usual gross-income rules.
+      </p>
+    </div>
+  );
+}
+
+/** Debt, FI, investments and income share one request. */
+function WealthTab({ tab }: { tab: Exclude<Tab, "health"> }) {
+  const { data, isLoading, isError, error } = useWealth();
+  if (isError) return <ErrorNote>{error instanceof Error ? error.message : "Could not load your data."}</ErrorNote>;
+  if (isLoading || !data) return <div className="skeleton h-[480px]" />;
+  if (tab === "debt") return <DebtPlanner data={data} />;
+  if (tab === "fi") return <FiCalculator data={data} />;
+  if (tab === "investments") return <InvestmentsPanel data={data} />;
+  return <IncomePanel data={data} />;
+}
+
+function HealthTab() {
+  const [range, setRange] = useState<Range>("24");
+  const { data, isLoading, isError, error, isPlaceholderData } = useInsights(Number(range));
+
+  return (
+    <div className="space-y-10">
       {isError ? <ErrorNote>{error instanceof Error ? error.message : "Could not load insights."}</ErrorNote> : null}
 
       <Stagger className="grid gap-3 lg:grid-cols-12">
@@ -114,11 +172,6 @@ export default function InsightsPage() {
           </Panel>
         </Reveal>
       </div>
-
-      <p className="border-t border-line pt-6 text-[12px] leading-relaxed text-faint">
-        Educational guidance based on widely used personal-finance rules. Not individual investment, tax or legal advice.
-        Ratios use the take-home income you record, which makes every target stricter than the usual gross-income rules.
-      </p>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { AccountKind, AccountNature } from "@/lib/api/accounts";
+import type { AccountKind, AccountNature, AssetClass } from "@/lib/api/accounts";
 
 type KindMeta = {
   label: string;
@@ -30,3 +30,15 @@ export const LIABILITY_KINDS = (Object.keys(ACCOUNT_KINDS) as AccountKind[]).fil
   (kind) => ACCOUNT_KINDS[kind].nature === "liability",
 );
 
+export const ASSET_CLASSES: Array<{ value: AssetClass; label: string }> = [
+  { value: "equity", label: "Shares / equity funds" },
+  { value: "bond", label: "Bonds / fixed income" },
+  { value: "mixed", label: "Mixed / balanced" },
+  { value: "cash", label: "Cash-like" },
+  { value: "real_estate", label: "Real estate" },
+  { value: "gold", label: "Gold" },
+  { value: "other", label: "Other" },
+];
+
+export const assetClassLabel = (value: AssetClass) =>
+  ASSET_CLASSES.find((option) => option.value === value)?.label ?? value;

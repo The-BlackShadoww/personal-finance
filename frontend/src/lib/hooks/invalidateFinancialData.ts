@@ -29,6 +29,8 @@ export function invalidateFinancialData(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: ["recurring"] }),
     // Net worth, health score and spending insights (key owned by useInsights).
     queryClient.invalidateQueries({ queryKey: ["insights"] }),
+    // Debts, investments and income (key owned by useWealth).
+    queryClient.invalidateQueries({ queryKey: ["wealth"] }),
     // Its income-stability assessment is computed from transactions.
     queryClient.invalidateQueries({ queryKey: financialProfileKeys.all }),
   ]);

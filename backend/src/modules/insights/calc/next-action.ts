@@ -175,8 +175,8 @@ export function nextBestAction(input: ActionInputs): NextAction {
       detail: `It charges ${rate}. Paying it off first (the avalanche method) saves the most interest.`,
       amountCents: worstDebt.balanceCents,
       ...suggestPace(worstDebt.balanceCents, surplus, income),
-      href: '/transactions?tab=recurring',
-      cta: 'Schedule a payment',
+      href: '/insights?tab=debt',
+      cta: 'Plan the payoff',
     });
   }
 
