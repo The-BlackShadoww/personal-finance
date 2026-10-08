@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { useAccountSummary, useSetupAccount } from "@/lib/hooks/useAccount";
 import { useAccounts } from "@/lib/hooks/useAccounts";
-import { currencySymbol } from "@/lib/utils/money";
+import { currencySymbol, parseAmountInput } from "@/lib/utils/money";
 import { Notice, SectionTitle } from "./ui";
 
 export function AccountSettingsTab() {
   const { data: summary, isLoading } = useAccountSummary();
   const setup = useSetupAccount();
-  const [initialBalance, setInitialBalance] = useState(0);
-  const [threshold, setThreshold] = useState(5000);
+  const [initialBalance, setInitialBalance] = useState("0");
+  const [threshold, setThreshold] = useState("5000");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -23,11 +23,11 @@ export function AccountSettingsTab() {
   const defaultOpeningCents = accountsData?.accounts.find((account) => account.isDefault)?.openingBalanceCents;
 
   useEffect(() => {
-    if (summary) setThreshold(summary.lowBalanceThresholdCents / 100);
+    if (summary) setThreshold(String(summary.lowBalanceThresholdCents / 100));
   }, [summary]);
 
   useEffect(() => {
-    if (defaultOpeningCents !== undefined) setInitialBalance(defaultOpeningCents / 100);
+    if (defaultOpeningCents !== undefined) setInitialBalance(String(defaultOpeningCents / 100));
   }, [defaultOpeningCents]);
 
   if (isLoading || accountsLoading)
@@ -42,10 +42,17 @@ export function AccountSettingsTab() {
     e.preventDefault();
     setError(null);
     setSaved(false);
+    const balance = parseAmountInput(initialBalance);
+    const alert = parseAmountInput(threshold);
+    if (balance === null || alert === null || !Number.isFinite(balance) || !Number.isFinite(alert)) {
+      return setError("Amounts must be numbers.");
+    }
+    if (balance < 0 || alert < 0) return setError("Amounts can't be negative.");
     try {
       await setup.mutateAsync({
-        initialBalance: Math.round(initialBalance),
-        lowBalanceThreshold: Math.round(threshold),
+        // Cents precision, matching every other amount in the app.
+        initialBalance: Math.round(balance * 100) / 100,
+        lowBalanceThreshold: Math.round(alert * 100) / 100,
       });
       setSaved(true);
     } catch (err) {
@@ -61,8 +68,8 @@ export function AccountSettingsTab() {
           description="Balances are recalculated from each account's opening balance and every transaction. The alert compares against money available to spend — after goals."
         />
         <form onSubmit={saveConfig} className="grid gap-5 sm:grid-cols-2">
-          <NumberInput id="initial-balance" label="Default account opening balance" prefix={currencySymbol()} value={initialBalance} onChange={setInitialBalance} />
-          <NumberInput id="threshold" label="Low-balance threshold" prefix={currencySymbol()} value={threshold} onChange={setThreshold} />
+          <MoneyInput id="initial-balance" label="Default account opening balance" prefix={currencySymbol()} value={initialBalance} onChange={setInitialBalance} />
+          <MoneyInput id="threshold" label="Low-balance threshold" prefix={currencySymbol()} value={threshold} onChange={setThreshold} />
           <div className="space-y-3 sm:col-span-2">
             <Notice show={Boolean(error)} tone="error">
               {error}
@@ -97,22 +104,18 @@ export function AccountSettingsTab() {
   );
 }
 
-function NumberInput({
+function MoneyInput({
   id,
   label,
   value,
   onChange,
-  min = 0,
-  max,
   prefix,
   suffix,
 }: {
   id: string;
   label: string;
-  value: number;
-  onChange: (value: number) => void;
-  min?: number;
-  max?: number;
+  value: string;
+  onChange: (value: string) => void;
   prefix?: string;
   suffix?: string;
 }) {
@@ -125,13 +128,13 @@ function NumberInput({
         ) : null}
         <input
           id={id}
-          type="number"
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
           required
-          min={min}
-          max={max}
-          step="1"
+          placeholder="0.00"
           value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
+          onChange={(e) => onChange(e.target.value)}
           className={`field num ${prefix ? "pl-7" : ""} ${suffix ? "pr-8" : ""}`}
         />
         {suffix ? (
