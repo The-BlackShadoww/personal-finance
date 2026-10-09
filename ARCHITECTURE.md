@@ -33,7 +33,7 @@ graph TD
 ## 2. Frontend Architecture
 
 **Path**: `frontend/`  
-**Core technologies**: Next.js 15, React 19, Tailwind CSS v4, TanStack React Query v5
+**Core technologies**: Next.js 15, React 19, Tailwind CSS v4, TanStack React Query v5, Framer Motion
 
 ### App structure
 
@@ -43,17 +43,21 @@ The App Router organizes pages into route groups:
 | --- | --- | --- |
 | Public marketing | `/` | Landing page |
 | Auth | `/login`, `/register` | Credential flows |
-| App shell `(app)` | `/dashboard`, `/transactions`, `/budgets`, `/reports`, `/settings` | Authenticated experience with shared sidebar layout |
+| App shell `(app)` | `/dashboard`, `/accounts`, `/transactions`, `/budgets`, `/goals`, `/insights`, `/review`, `/reports`, `/settings`, `/guide` | Authenticated experience with shared sidebar layout |
 
-Interactive pages use `"use client"`; layouts and static content can remain server components.
+> [!NOTE]
+> The old `/account` route (account config + savings sectors) has been split. Account management now lives at `/accounts` (multi-account CRUD with balances and valuations). The legacy account-setup endpoint still exists on the backend for initial opening balance and threshold.
+
+Interactive pages use `"use client"`; layouts and static content remain server components.
 
 ### Key design patterns
 
-- **Component-based UI** — Feature folders under `src/components/` (dashboard, forms, settings, reports, ui).
-- **API module layer** — `src/lib/api/` wraps REST endpoints (`auth`, `transactions`, `categories`, `calculations`, `reports`, `account`, `users`).
+- **Component-based UI** — Feature folders under `src/components/` (dashboard, accounts, goals, insights, wealth, habits, charts, forms, settings, ui).
+- **API module layer** — `src/lib/api/` wraps REST endpoints for every backend module.
 - **React Query hooks** — `src/lib/hooks/` encapsulate fetch/mutation logic, cache keys, and invalidation.
-- **Forms** — React Hook Form + Zod resolvers for login, transactions, categories, and settings.
+- **Forms** — React Hook Form + Zod resolvers for login, transactions, categories, goals, and settings.
 - **Styling** — Tailwind CSS v4 with Carbon-inspired tokens; `clsx` + `tailwind-merge` for conditional classes.
+- **Animation** — Framer Motion for page transitions, animated progress bars, and the monthly review wizard.
 
 ### API client and session handling
 
@@ -68,12 +72,19 @@ Access tokens live in memory (not localStorage). Refresh tokens live in httpOnly
 
 ### Route protection
 
-[`frontend/src/middleware.ts`](frontend/src/middleware.ts) runs on protected and auth routes:
+[`frontend/src/middleware.ts`](frontend/src/middleware.ts) runs on all page requests (excluding static files and API rewrites):
 
 - Protected paths without a `refresh_token` cookie → redirect to `/login?next=…`
 - Auth paths with a cookie → redirect to `/dashboard`
+- All other requests → pass through with a per-request nonce-based Content-Security-Policy header
+
+**Protected routes**: `/dashboard`, `/account`, `/accounts`, `/goals`, `/transactions`, `/budgets`, `/insights`, `/review`, `/reports`, `/settings`, `/guide`
 
 This is a lightweight gate. Actual token validation happens on the API when data is fetched.
+
+### Content-Security-Policy
+
+The middleware generates a fresh nonce for every request and inserts it into the `Content-Security-Policy` header. Only scripts carrying that nonce (added by Next.js to its own tags and by the root layout's theme script) may execute. `connect-src 'self'` restricts all fetch/XHR to the same origin.
 
 ### API proxy (development and production)
 
@@ -100,13 +111,24 @@ The API follows NestJS feature modules. Each module owns its controller(s), serv
 | --- | --- |
 | `AuthModule` | Register, login, refresh, logout, Google OAuth, 2FA |
 | `UsersModule` | Profile updates, password changes |
-| `CategoriesModule` | Income/expense category CRUD |
-| `TransactionsModule` | Ledger CRUD, filters, projected balance |
-| `BudgetsModule` | Monthly budget upsert and status vs actual spending |
-| `AccountModule` | Account setup, balance summary, savings sectors |
-| `CalculationsModule` | Monthly/quarterly/yearly aggregates, category breakdown |
+| `CategoriesModule` | Income/expense category CRUD with default seeding |
+| `TransactionsModule` | Ledger CRUD (income / expense / **transfer**), filters, projected balance |
+| `RecurringModule` | Recurring rules (schedules, auto-post, confirm, skip, pause/resume) |
+| `BudgetsModule` | Monthly spending plan, per-category budgets, bulk upsert, copy-previous-month |
+| `AccountModule` | Legacy account-config and savings-sector endpoints |
+| `AccountsModule` | Multi-account CRUD, balances, six-month trend, archive/restore/delete |
+| `ValuationsModule` | Dated market-value entries for investment/retirement/property accounts |
+| `GoalsModule` | Goal CRUD, contributions, withdrawals, income-allocation, reorder, archive |
+| `InsightsModule` | Health score, next best action, runway, net-worth series, spending insights |
+| `WealthModule` | Debt payoff, FI calculator, investment tracking, income tracking |
+| `ReviewsModule` | Monthly review status, review data, complete/save review |
+| `WishlistModule` | Cooling-off list (wants waiting, decisions, settings) |
+| `FinancialProfileModule` | User financial profile (income stability, dependents, insurance, etc.) |
+| `CalculationsModule` | Monthly/quarterly/yearly/range aggregates, category breakdown, dashboard overview |
 | `ReportsModule` | CSV stream and PDF generation |
+| `HealthModule` | `/health` liveness endpoint |
 | `DbModule` | Global Drizzle connection (`DB_TOKEN`) |
+| `UserCacheModule` | In-memory cache for hot account lookups |
 
 Cross-cutting code lives in `src/common/`:
 
@@ -114,6 +136,7 @@ Cross-cutting code lives in `src/common/`:
 - **Interceptors** — `LoggingInterceptor`, `TransformInterceptor` (`{ data, meta }` wrapper)
 - **Filters** — `GlobalExceptionFilter`, `ThrottlerExceptionFilter`
 - **Middleware** — `RequestIdMiddleware` (`X-Request-Id`)
+- **Cache** — `UserCacheModule` for fast same-request account resolution
 
 Controllers use Swagger decorators; interactive docs mount at `/api/docs` when enabled.
 
@@ -131,6 +154,13 @@ HTTP Request
 ```
 
 File download endpoints (`/reports/csv`, `/reports/pdf`) write directly to the Express response and skip the JSON wrapper.
+
+### Ledger validation
+
+`LedgerValidator` (shared by `TransactionsModule` and `RecurringModule`) enforces:
+- Income/expense entries need a matching-type category and no destination account.
+- Transfer entries need two different active accounts and no category.
+- Referenced accounts must be active (not archived) unless the entry is already linked to them.
 
 ### Data access
 
@@ -150,13 +180,45 @@ All currency values persist as **integer cents** (`amountCents`, `initialBalance
 | --- | --- |
 | **users** | Primary entity — email, password hash, Google ID, avatar, encrypted 2FA secret, timezone, soft delete |
 | **refresh_tokens** | Opaque refresh tokens (hashed), grouped by `tokenFamily` for rotation, with user-agent/IP metadata |
-| **categories** | User-scoped income/expense labels with color, icon, sort order, default flag |
-| **transactions** | Ledger entries — amount, type, date, note, denormalized month/year for efficient period queries |
-| **budgets** | Monthly caps — global (`categoryId` null) or per-category, unique per user/year/month/category |
-| **account_config** | One row per user — initial balance and low-balance alert threshold |
-| **savings_sectors** | Named allocation buckets with percentage, styling, optional target amount |
+| **categories** | User-scoped income/expense labels with color, icon, type metadata (need/want, fixed/variable, income kind), sort order, default flag |
+| **transactions** | Ledger entries — amount, type (`income`/`expense`/`transfer`), date, note, accountId, counterAccountId, denormalized month/year for efficient period queries |
+| **accounts** | Multi-account registry — kind, name, color, icon, opening balance, low-balance threshold, default flag, archivedAt |
+| **account_valuations** | Dated market values for investment/retirement/property accounts |
+| **goals** | Named money earmarks inside accounts — kind, funding rule, target amount/date, archivedAt |
+| **goal_allocations** | Links an income transaction to the goal contributions it triggered |
+| **recurring_rules** | Schedule definitions — frequency, amount, account, category/counterAccount, auto-post flag, billing-month offset |
+| **recurring_occurrences** | Posted or skipped instances of a recurring rule |
+| **financial_profiles** | One row per user — income stability, dependents, insurance, employer match, retirement fields, cooling-off hours |
+| **monthly_reviews** | Completed review answers — wins, leaks, worth-it ratings, commitment text |
+| **wishlist_items** | Cooling-off list entries — name, amount, status, decided-at timestamp |
+| **budgets** | Monthly caps — global (`categoryId` null) or per-category, method, expected income, notes |
+| **account_config** | One row per user (legacy) — initial balance and low-balance alert threshold |
+| **savings_sectors** | Named allocation buckets (legacy) — percentage, styling, optional target amount |
 
 Foreign keys enforce ownership. Deleting a user cascades to dependent rows.
+
+### Entity relationships
+
+```mermaid
+erDiagram
+    users ||--o{ categories : owns
+    users ||--o{ transactions : owns
+    users ||--o{ accounts : owns
+    users ||--o{ goals : owns
+    users ||--o{ recurring_rules : owns
+    users ||--o{ budgets : owns
+    users ||--o| financial_profiles : has
+    users ||--o{ monthly_reviews : has
+    users ||--o{ wishlist_items : has
+    users ||--o{ refresh_tokens : owns
+    accounts ||--o{ transactions : from
+    accounts ||--o{ account_valuations : has
+    accounts ||--o{ goals : holds
+    categories ||--o{ transactions : categorizes
+    categories ||--o{ recurring_rules : categorizes
+    recurring_rules ||--o{ recurring_occurrences : posts
+    transactions ||--o{ goal_allocations : triggers
+```
 
 ---
 
@@ -199,8 +261,9 @@ When an API call returns `401`, the client POSTs to `/auth/refresh` with credent
 
 ### Additional security controls
 
-- **Google OAuth** — Passport Google strategy; callback upserts the user, sets cookies, redirects to frontend with access token in query string (frontend callback handler pending).
+- **Google OAuth** — Passport Google strategy; callback upserts the user, sets cookies, redirects to frontend.
 - **2FA (TOTP)** — Secret encrypted with `TWO_FACTOR_ENCRYPTION_KEY`; setup/enable/disable via authenticated endpoints.
+- **Content-Security-Policy** — Per-request nonce enforced by Next.js middleware; `connect-src 'self'` blocks cross-origin data exfiltration.
 - **Helmet** — Security headers including CSP tuned for Swagger in development.
 - **CORS** — Locked to `FRONTEND_URL` with `credentials: true`.
 - **Rate limiting** — Global default (100 req/min) plus stricter per-route limits on auth and report endpoints. Redis storage used when `REDIS_URL` is set; otherwise in-memory fallback.
@@ -250,22 +313,39 @@ Do not point `NEXT_PUBLIC_API_URL` at Render directly — cross-origin cookies w
 | Frontend surface | Primary API modules |
 | --- | --- |
 | Login / Register | `auth` |
-| Dashboard | `calculations`, `account` |
-| Transactions | `transactions`, `categories` |
-| Reports | `reports`, `calculations` (preview) |
+| Dashboard | `calculations` (dashboard overview), `recurring` (auto-materialize) |
+| Accounts (`/accounts`) | `accounts`, `valuations` |
+| Transactions (`/transactions`) | `transactions`, `categories`, `recurring` (auto-materialize) |
+| Budgets (`/budgets`) | `budgets` (plan + status + bulk) |
+| Goals (`/goals`) | `goals`, `accounts`, `categories`, `wishlist` |
+| Insights (`/insights`) | `insights`, `wealth`, `recurring` (auto-materialize) |
+| Monthly Review (`/review`) | `reviews` |
+| Reports (`/reports`) | `reports`, `calculations` (preview) |
 | Settings → Profile / Security | `users`, `auth` (2FA, me) |
 | Settings → Categories | `categories` |
-| Settings → Account | `account` |
-| Budgets (placeholder) | `budgets` (ready, not wired in UI) |
+| Settings → Financial Profile | `profile/financial` |
+| Settings → Account | `account` (legacy config) |
 
-React Query cache keys are colocated with hooks (for example `useTransactions`, `useMonthlySummary`, `useAccount`) and invalidated after mutations that affect derived summaries.
+React Query cache keys are colocated with hooks (e.g. `useAccounts`, `useGoals`, `useInsights`, `useWealth`) and invalidated after mutations that affect derived summaries.
 
 ---
 
-## 8. Future Architectural Considerations
+## 8. Recurring Entry Materialization
 
-- **Budgets UI** — Wire existing `budgets` endpoints into the `/budgets` page with React Query hooks mirroring transactions/categories patterns.
-- **Auth callback routes** — Add `/2fa` (login verification) and `/auth/oauth/callback` (Google token handoff) on the frontend.
+Several endpoints trigger deferred recurring entry posting before returning data:
+
+- `GET /calculations/dashboard` — posts due entries before assembling the dashboard
+- `GET /transactions` — posts due entries so the ledger is current
+- `GET /insights` — posts due entries before scoring
+- `GET /recurring` — posts due entries then returns rules + due + upcoming + subscriptions
+
+Auto-post rules record entries immediately when due (e.g. salary, auto-invest). Confirm-mode rules create a pending occurrence that waits in the "Due" list until the user confirms the actual amount or skips.
+
+---
+
+## 9. Future Architectural Considerations
+
 - **Query caching** — Extend Redis beyond rate limiting to cache heavy aggregate queries (dashboard summaries) with explicit invalidation on transaction writes.
 - **Background jobs** — Queue large PDF batches or email notifications via BullMQ (Redis-backed) to avoid blocking the Node.js event loop.
 - **Observability** — Structured logging correlation via `X-Request-Id`, health checks, and metrics for Render/Vercel deployments.
+- **Test coverage** — Expand unit tests (calc modules have specs) and add integration/E2E tests against a test database.
