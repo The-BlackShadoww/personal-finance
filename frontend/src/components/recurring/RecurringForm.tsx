@@ -11,6 +11,8 @@ import type { Category } from "@/lib/api/categories";
 import type { Frequency, RecurringPayload, RecurringRule } from "@/lib/api/recurring";
 import type { TransactionType } from "@/lib/api/transactions";
 import { parseAmountInput } from "@/lib/utils/money";
+import { Select } from "@/components/ui/Select";
+import { DateInput } from "@/components/ui/DateInput";
 
 const FREQUENCIES: Array<{ value: Frequency; label: string }> = [
   { value: "weekly", label: "Every week" },
@@ -216,59 +218,59 @@ export function RecurringForm({
 
         <div>
           <label className="label" htmlFor="rule-account">{isTransfer ? "From" : form.type === "income" ? "Received in" : "Paid from"}</label>
-          <select id="rule-account" className="field" value={form.accountId} onChange={(event) => set("accountId", event.target.value)}>
+          <Select id="rule-account" className="field" value={form.accountId} onChange={(event) => set("accountId", event.target.value)}>
             {accountOptions()}
-          </select>
+          </Select>
         </div>
         {isTransfer ? (
           <div>
             <label className="label" htmlFor="rule-to">To</label>
-            <select id="rule-to" className="field" value={form.counterAccountId} onChange={(event) => set("counterAccountId", event.target.value)}>
+            <Select id="rule-to" className="field" value={form.counterAccountId} onChange={(event) => set("counterAccountId", event.target.value)}>
               <option value="">Choose an account</option>
               {accountOptions(form.accountId)}
-            </select>
+            </Select>
           </div>
         ) : (
           <div>
             <label className="label" htmlFor="rule-category">Category</label>
-            <select id="rule-category" className="field" value={form.categoryId} onChange={(event) => set("categoryId", event.target.value)}>
+            <Select id="rule-category" className="field" value={form.categoryId} onChange={(event) => set("categoryId", event.target.value)}>
               <option value="">Choose a category</option>
               {typedCategories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         )}
 
         <div>
           <label className="label" htmlFor="rule-frequency">How often</label>
-          <select id="rule-frequency" className="field" value={form.frequency} onChange={(event) => set("frequency", event.target.value as Frequency)}>
+          <Select id="rule-frequency" className="field" value={form.frequency} onChange={(event) => set("frequency", event.target.value as Frequency)}>
             {FREQUENCIES.map((frequency) => (
               <option key={frequency.value} value={frequency.value}>
                 {frequency.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <label className="label" htmlFor="rule-anchor">First date</label>
-          <input id="rule-anchor" type="date" className="field" value={form.anchorDate} onChange={(event) => set("anchorDate", event.target.value)} />
+          <DateInput id="rule-anchor" className="field" value={form.anchorDate} onChange={(event) => set("anchorDate", event.target.value)} />
         </div>
         <div>
           <label className="label" htmlFor="rule-end">
             Ends <span className="text-faint">optional</span>
           </label>
-          <input id="rule-end" type="date" className="field" value={form.endDate} onChange={(event) => set("endDate", event.target.value)} />
+          <DateInput id="rule-end" className="field" value={form.endDate} onChange={(event) => set("endDate", event.target.value)} />
         </div>
         <div>
           <label className="label" htmlFor="rule-period">Counts toward</label>
-          <select id="rule-period" className="field" value={form.periodOffsetMonths} onChange={(event) => set("periodOffsetMonths", Number(event.target.value))}>
+          <Select id="rule-period" className="field" value={form.periodOffsetMonths} onChange={(event) => set("periodOffsetMonths", Number(event.target.value))}>
             <option value={-1}>The previous month (e.g. rent paid on the 1st)</option>
             <option value={0}>The same month</option>
             <option value={1}>The next month (e.g. salary paid early)</option>
-          </select>
+          </Select>
         </div>
       </div>
 

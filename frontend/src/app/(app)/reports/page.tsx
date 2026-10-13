@@ -14,6 +14,7 @@ import { reportsApi } from "@/lib/api/reports";
 import { type DownloadHistoryEntry, useDownloadHistory } from "@/lib/hooks/useDownloadHistory";
 import { useReportPreview } from "@/lib/hooks/useReportPreview";
 import { cn } from "@/lib/utils/cn";
+import { Select } from "@/components/ui/Select";
 
 type ReportFormat = "csv" | "pdf";
 
@@ -121,7 +122,7 @@ export default function ReportsPage() {
                   <div key={entry[0]}>
                     <p className="label text-muted">{entry[0]}</p>
                     <div className="flex gap-2">
-                      <select
+                      <Select
                         aria-label={`${entry[0]} month`}
                         value={entry[1]}
                         onChange={(e) => entry[2](Number(e.target.value))}
@@ -132,8 +133,8 @@ export default function ReportsPage() {
                             {name}
                           </option>
                         ))}
-                      </select>
-                      <select
+                      </Select>
+                      <Select
                         aria-label={`${entry[0]} year`}
                         value={entry[3]}
                         onChange={(e) => entry[4](Number(e.target.value))}
@@ -144,7 +145,7 @@ export default function ReportsPage() {
                             {y}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                   </div>
                 ),

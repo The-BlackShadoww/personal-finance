@@ -24,6 +24,8 @@ import { useGoals } from "@/lib/hooks/useGoals";
 import { useAddWishlistItem, useWishlist } from "@/lib/hooks/useHabits";
 import { invalidateFinancialData } from "@/lib/hooks/invalidateFinancialData";
 import { formatCents, formatMoney } from "@/lib/utils/money";
+import { Select } from "@/components/ui/Select";
+import { DateInput } from "@/components/ui/DateInput";
 
 const transactionSchema = z
   .object({
@@ -428,15 +430,15 @@ export function TransactionForm({ transaction, prefill, onSuccess, onCancel, onC
           <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto_1fr]">
             <div>
               <label className="label" htmlFor="accountId">From</label>
-              <select id="accountId" className="field" disabled={accountsLoading} {...register("accountId")}>
+              <Select id="accountId" className="field" disabled={accountsLoading} {...register("accountId")}>
                 <option value="">{accountsLoading ? "Loading accounts…" : "Choose an account"}</option>
                 {accountOptions()}
-              </select>
+              </Select>
             </div>
             <ArrowRight size={16} weight="bold" className="mb-3 hidden text-muted sm:block" aria-hidden="true" />
             <div>
               <label className="label" htmlFor="counterAccountId">To</label>
-              <select
+              <Select
                 id="counterAccountId"
                 className="field"
                 disabled={accountsLoading}
@@ -445,7 +447,7 @@ export function TransactionForm({ transaction, prefill, onSuccess, onCancel, onC
               >
                 <option value="">Choose an account</option>
                 {accountOptions(accountId)}
-              </select>
+              </Select>
             </div>
           </div>
           {errors.accountId ? <FieldError message={errors.accountId.message} /> : null}
@@ -460,7 +462,7 @@ export function TransactionForm({ transaction, prefill, onSuccess, onCancel, onC
             <label className="label" htmlFor="categoryId">
               Category
             </label>
-            <select
+            <Select
               id="categoryId"
               className="field"
               disabled={categoriesLoading}
@@ -473,7 +475,7 @@ export function TransactionForm({ transaction, prefill, onSuccess, onCancel, onC
                   {category.name}
                 </option>
               ))}
-            </select>
+            </Select>
             {errors.categoryId ? <FieldError message={errors.categoryId.message} /> : null}
             {offerCoolingOff && coolingOff ? (
               <div className="mt-2 rounded-[8px] bg-surface-2 px-3 py-2.5 text-[12px] text-muted">
@@ -508,7 +510,7 @@ export function TransactionForm({ transaction, prefill, onSuccess, onCancel, onC
             <label className="label" htmlFor="accountId">
               {selectedType === "income" ? "Received in" : "Paid from"}
             </label>
-            <select
+            <Select
               id="accountId"
               className="field"
               disabled={accountsLoading}
@@ -517,7 +519,7 @@ export function TransactionForm({ transaction, prefill, onSuccess, onCancel, onC
             >
               <option value="">{accountsLoading ? "Loading accounts…" : "Choose an account"}</option>
               {accountOptions()}
-            </select>
+            </Select>
             {errors.accountId ? <FieldError message={errors.accountId.message} /> : null}
           </div>
         </div>
@@ -529,7 +531,7 @@ export function TransactionForm({ transaction, prefill, onSuccess, onCancel, onC
           The month this entry belongs to — not necessarily when money changed hands.
         </p>
         <div className="flex gap-2">
-          <select
+          <Select
             aria-label="Period month"
             value={periodMonth}
             onChange={(event) => setValue("transactionMonth", parseInt(event.target.value, 10), { shouldValidate: true })}
@@ -540,8 +542,8 @@ export function TransactionForm({ transaction, prefill, onSuccess, onCancel, onC
                 {name}
               </option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             aria-label="Period year"
             value={periodYear}
             onChange={(event) => setValue("transactionYear", parseInt(event.target.value, 10), { shouldValidate: true })}
@@ -552,7 +554,7 @@ export function TransactionForm({ transaction, prefill, onSuccess, onCancel, onC
                 {year}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <p className="mt-2 flex items-center gap-1.5 text-[12px] text-muted">
           <CalendarBlank size={12} weight="bold" aria-hidden="true" />
@@ -568,7 +570,7 @@ export function TransactionForm({ transaction, prefill, onSuccess, onCancel, onC
           {isTransfer ? "Date moved" : "Date received or paid"}
         </label>
         <p className="hint mb-2">For your records only — it does not change which month the entry counts toward.</p>
-        <input id="date" type="date" className="field" aria-invalid={errors.date ? "true" : "false"} {...register("date")} />
+        <DateInput id="date" className="field" aria-invalid={errors.date ? "true" : "false"} {...register("date")} />
         {futureDateWarning ? (
           <p className="mt-2 flex items-center gap-1.5 text-[12px] text-yellow-fg">
             <Warning size={12} weight="fill" aria-hidden="true" />

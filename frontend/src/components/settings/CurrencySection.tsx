@@ -6,6 +6,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { useProfile, useUpdateProfile } from "@/lib/hooks/useProfile";
 import { Notice, SectionTitle } from "./ui";
+import { Select } from "@/components/ui/Select";
 
 // Shown first; every other ISO 4217 code follows in a second group.
 const COMMON_CURRENCIES = [
@@ -100,7 +101,7 @@ export function CurrencySection() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="currency">Currency</label>
-              <select id="currency" className="field" value={currency} onChange={(event) => setCurrency(event.target.value)}>
+              <Select id="currency" className="field" value={currency} onChange={(event) => setCurrency(event.target.value)}>
                 <optgroup label="Common">
                   {COMMON_CURRENCIES.map((code) => (
                     <option key={code} value={code}>
@@ -115,17 +116,17 @@ export function CurrencySection() {
                     </option>
                   ))}
                 </optgroup>
-              </select>
+              </Select>
             </div>
             <div>
               <label className="label" htmlFor="number-format">Number format</label>
-              <select id="number-format" className="field" value={locale} onChange={(event) => setLocale(event.target.value)}>
+              <Select id="number-format" className="field" value={locale} onChange={(event) => setLocale(event.target.value)}>
                 {numberFormats.map((format) => (
                   <option key={format.locale} value={format.locale}>
                     {format.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 

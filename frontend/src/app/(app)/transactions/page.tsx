@@ -23,6 +23,8 @@ import { useDeleteTransaction } from "@/lib/hooks/useDeleteTransaction";
 import { useTransactions } from "@/lib/hooks/useTransactions";
 import { cn } from "@/lib/utils/cn";
 import { formatCents } from "@/lib/utils/money";
+import { Select } from "@/components/ui/Select";
+import { DateInput } from "@/components/ui/DateInput";
 
 const PAGE_SIZE = 10;
 const MONTHS = [
@@ -259,7 +261,7 @@ export default function TransactionsPage() {
           <div className="mt-5 grid gap-3 border-t border-line pt-5 sm:grid-cols-2 lg:grid-cols-6">
             <label>
               <span className="label text-muted">Period month</span>
-              <select
+              <Select
                 value={filterMonth ?? ""}
                 className="field h-10"
                 onChange={(event) =>
@@ -272,11 +274,11 @@ export default function TransactionsPage() {
                     {name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label>
               <span className="label text-muted">Period year</span>
-              <select
+              <Select
                 value={filterYear ?? ""}
                 className="field h-10"
                 onChange={(event) =>
@@ -289,12 +291,11 @@ export default function TransactionsPage() {
                     {year}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label>
               <span className="label text-muted">From date</span>
-              <input
-                type="date"
+              <DateInput
                 value={startDate}
                 className="field h-10"
                 onChange={(event) => resetPage(setStartDate, event.target.value)}
@@ -302,8 +303,7 @@ export default function TransactionsPage() {
             </label>
             <label>
               <span className="label text-muted">To date</span>
-              <input
-                type="date"
+              <DateInput
                 value={endDate}
                 className="field h-10"
                 onChange={(event) => resetPage(setEndDate, event.target.value)}
@@ -311,7 +311,7 @@ export default function TransactionsPage() {
             </label>
             <label>
               <span className="label text-muted">Account</span>
-              <select value={accountId} className="field h-10" onChange={(event) => resetPage(setAccountId, event.target.value)}>
+              <Select value={accountId} className="field h-10" onChange={(event) => resetPage(setAccountId, event.target.value)}>
                 <option value="">All accounts</option>
                 {(accountsData?.accounts ?? []).map((account) => (
                   <option key={account.id} value={account.id}>
@@ -319,18 +319,18 @@ export default function TransactionsPage() {
                     {account.archivedAt ? " (archived)" : ""}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label>
               <span className="label text-muted">Category</span>
-              <select value={categoryId} className="field h-10" onChange={(event) => resetPage(setCategoryId, event.target.value)}>
+              <Select value={categoryId} className="field h-10" onChange={(event) => resetPage(setCategoryId, event.target.value)}>
                 <option value="">All categories</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           </div>
         </section>

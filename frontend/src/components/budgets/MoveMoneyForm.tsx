@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import type { BudgetItem, PlanCategory } from "@/lib/api/budgets";
 import { formatCents, parseAmountInput } from "@/lib/utils/money";
 import { MoneyField } from "@/components/goals/GoalForm";
+import { Select } from "@/components/ui/Select";
 
 /**
  * Covers an overspent category by moving budget from one with room left —
@@ -72,13 +73,13 @@ export function MoveMoneyForm({
       </p>
       <div>
         <label className="label" htmlFor="move-source">From</label>
-        <select id="move-source" className="field" value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
+        <Select id="move-source" className="field" value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
           {sources.map((category) => (
             <option key={category.categoryId} value={category.categoryId}>
               {category.name} — {formatCents(category.remainingCents ?? 0)} left
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <MoneyField id="move-amount" label="Amount" value={amount} onChange={setAmount} />
       {error ? (

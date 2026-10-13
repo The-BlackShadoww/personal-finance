@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import type { FinancialProfile, IncomeStability } from "@/lib/api/financialProfile";
 import { useFinancialProfile, useUpdateFinancialProfile } from "@/lib/hooks/useFinancialProfile";
 import { ChoiceGroup, Notice, SectionTitle } from "./ui";
+import { Select } from "@/components/ui/Select";
 
 type Answers = {
   incomeStability: IncomeStability | null;
@@ -269,7 +270,7 @@ export function FinancialProfileTab() {
           </label>
           <label className="block">
             <span className="label">Safe withdrawal rate (%)</span>
-            <select
+            <Select
               className="field w-32"
               value={answers.safeWithdrawalPercent}
               onChange={(event) => set("safeWithdrawalPercent", Number(event.target.value))}
@@ -279,14 +280,14 @@ export function FinancialProfileTab() {
                   {rate}%
                 </option>
               ))}
-            </select>
+            </Select>
             <span className="mt-1.5 block text-[12px] text-muted">
               4% is the classic rule of thumb; 3–3.5% is more cautious for retiring early.
             </span>
           </label>
           <label className="block">
             <span className="label">Expected return after inflation (%)</span>
-            <select
+            <Select
               className="field w-32"
               value={answers.expectedRealReturnPercent}
               onChange={(event) => set("expectedRealReturnPercent", Number(event.target.value))}
@@ -296,7 +297,7 @@ export function FinancialProfileTab() {
                   {rate}%
                 </option>
               ))}
-            </select>
+            </Select>
             <span className="mt-1.5 block text-[12px] text-muted">
               Real (inflation-adjusted) returns keep projections in today&rsquo;s money.
             </span>
@@ -322,7 +323,7 @@ export function FinancialProfileTab() {
           </label>
           <label className="block">
             <span className="label">Wait</span>
-            <select
+            <Select
               className="field"
               value={answers.coolingOffHours}
               onChange={(event) => set("coolingOffHours", Number(event.target.value))}
@@ -335,7 +336,7 @@ export function FinancialProfileTab() {
               {COOLING_HOURS.some((option) => option.value === answers.coolingOffHours) ? null : (
                 <option value={answers.coolingOffHours}>{answers.coolingOffHours} hours</option>
               )}
-            </select>
+            </Select>
           </label>
         </div>
         <p className="mt-2 text-[12px] text-muted">

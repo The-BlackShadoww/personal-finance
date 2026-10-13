@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { Panel } from "@/components/dashboard/primitives";
 import { Stat } from "@/components/wealth/Stat";
 import { MoneyField } from "@/components/goals/GoalForm";
@@ -209,7 +209,8 @@ function Slider({
         step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="w-full accent-[var(--ds-foreground)]"
+        className="w-full"
+        style={{ "--range-fill": `${((value - min) / (max - min)) * 100}%` } as CSSProperties}
       />
       {hint ? <p className="mt-1 text-[12px] text-muted">{hint}</p> : null}
     </div>
