@@ -9,6 +9,8 @@ import type { Account } from "@/lib/api/accounts";
 import type { Category } from "@/lib/api/categories";
 import type { FundingRule, Goal, GoalKind, GoalPayload, GoalUpdatePayload } from "@/lib/api/goals";
 import { currencySymbol, parseAmountInput } from "@/lib/utils/money";
+import { Select } from "@/components/ui/Select";
+import { DateInput } from "@/components/ui/DateInput";
 
 const KINDS: Array<{ value: Exclude<GoalKind, "emergency">; label: string; hint: string }> = [
   { value: "sinking", label: "Sinking fund", hint: "A known cost with a date: insurance, a festival, a new laptop." },
@@ -162,7 +164,7 @@ export function GoalForm({
           </div>
           <div>
             <label className="label" htmlFor="goal-kind">Type</label>
-            <select
+            <Select
               id="goal-kind"
               className="field"
               disabled={isEditing}
@@ -174,7 +176,7 @@ export function GoalForm({
                   {kind.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <p className="-mt-2 text-[12px] text-muted sm:col-span-2">{kindMeta.hint}</p>
         </div>
@@ -183,27 +185,27 @@ export function GoalForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="goal-account">Kept in</label>
-          <select id="goal-account" className="field" value={form.accountId} onChange={(event) => set("accountId", event.target.value)}>
+          <Select id="goal-account" className="field" value={form.accountId} onChange={(event) => set("accountId", event.target.value)}>
             {assetAccounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
               </option>
             ))}
-          </select>
+          </Select>
           <p className="mt-1.5 text-[12px] text-muted">A separate savings account makes the money harder to spend by accident.</p>
         </div>
 
         {isEmergency ? (
           <div>
             <label className="label" htmlFor="goal-months">Months of essentials to hold</label>
-            <select id="goal-months" className="field" value={form.targetMonths} onChange={(event) => set("targetMonths", event.target.value)}>
+            <Select id="goal-months" className="field" value={form.targetMonths} onChange={(event) => set("targetMonths", event.target.value)}>
               <option value="">Automatic (from your financial profile)</option>
               {Array.from({ length: 10 }, (_, index) => index + 3).map((months) => (
                 <option key={months} value={months}>
                   {months} months
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         ) : (
           <MoneyField id="goal-target" label="Target" optional value={form.targetAmount} onChange={(value) => set("targetAmount", value)} />
@@ -214,7 +216,7 @@ export function GoalForm({
             <label className="label" htmlFor="goal-date">
               Target date <span className="text-faint">optional</span>
             </label>
-            <input id="goal-date" type="date" className="field" value={form.targetDate} onChange={(event) => set("targetDate", event.target.value)} />
+            <DateInput id="goal-date" className="field" value={form.targetDate} onChange={(event) => set("targetDate", event.target.value)} />
           </div>
         ) : null}
 
@@ -223,14 +225,14 @@ export function GoalForm({
             <label className="label" htmlFor="goal-category">
               Pays for <span className="text-faint">optional</span>
             </label>
-            <select id="goal-category" className="field" value={form.categoryId} onChange={(event) => set("categoryId", event.target.value)}>
+            <Select id="goal-category" className="field" value={form.categoryId} onChange={(event) => set("categoryId", event.target.value)}>
               <option value="">No category</option>
               {expenseCategories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
               ))}
-            </select>
+            </Select>
             <p className="mt-1.5 text-[12px] text-muted">Expenses in this category can be paid straight from the fund.</p>
           </div>
         ) : null}

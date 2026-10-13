@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { useUpsertValuation } from "@/lib/hooks/useAccounts";
 import { formatCents, parseAmountInput } from "@/lib/utils/money";
+import { DateInput } from "@/components/ui/DateInput";
 
 /** Today in the viewer's timezone, as "YYYY-MM-DD". */
 function localToday() {
@@ -65,7 +66,7 @@ export function ValuationForm({
       <MoneyField id="valuation-value" label="Current value" value={value} onChange={setValue} />
       <div>
         <label className="label" htmlFor="valuation-date">As of</label>
-        <input id="valuation-date" type="date" className="field num" max={today} value={date} onChange={(event) => setDate(event.target.value)} />
+        <DateInput id="valuation-date" className="field num" max={today} value={date} onChange={(event) => setDate(event.target.value)} />
       </div>
       <div>
         <label className="label" htmlFor="valuation-note">

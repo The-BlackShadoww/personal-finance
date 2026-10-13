@@ -13,6 +13,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { cn } from '@/lib/utils/cn';
 import { CurrencySection } from './CurrencySection';
 import { FieldError, Notice, SectionTitle } from './ui';
+import { Select } from "@/components/ui/Select";
 
 // A curated list of common IANA timezones grouped by region keeps the
 // dropdown scannable without scrolling through all ~600 zones.
@@ -136,7 +137,7 @@ export function PreferencesTab() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
               <label className="label" htmlFor="timezone">Timezone</label>
-              <select id="timezone" {...register('timezone')} aria-invalid={errors.timezone ? 'true' : 'false'} className="field">
+              <Select id="timezone" {...register('timezone')} aria-invalid={errors.timezone ? 'true' : 'false'} className="field">
                 {TIMEZONE_GROUPS.map((group) => (
                   <optgroup key={group.group} label={group.group}>
                     {group.zones.map((zone) => (
@@ -146,7 +147,7 @@ export function PreferencesTab() {
                     ))}
                   </optgroup>
                 ))}
-              </select>
+              </Select>
               <FieldError message={errors.timezone?.message} />
             </div>
 

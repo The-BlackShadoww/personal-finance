@@ -9,6 +9,7 @@ import { Category, CategoryClassification, CategoryTag, IncomeKind } from '../..
 import { ChoiceGroup } from '@/components/settings/ui';
 import { Button } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Select } from "@/components/ui/Select";
 
 const TAG_OPTIONS: Array<{ value: CategoryTag | ''; label: string }> = [
   { value: '', label: 'Nothing specific' },
@@ -137,7 +138,7 @@ export function CategoryForm({ initialData, onSubmit, onCancel, isLoading }: Cat
           </label>
           <div>
             <label className="label" htmlFor="category-tag">Counts toward</label>
-            <select
+            <Select
               id="category-tag"
               className="field"
               value={tag ?? ''}
@@ -148,7 +149,7 @@ export function CategoryForm({ initialData, onSubmit, onCancel, isLoading }: Cat
                   {option.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
       ) : (

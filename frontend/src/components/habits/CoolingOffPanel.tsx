@@ -19,6 +19,7 @@ import {
   useWishlist,
 } from "@/lib/hooks/useHabits";
 import { formatCents, parseAmountInput } from "@/lib/utils/money";
+import { Select } from "@/components/ui/Select";
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : "Something went wrong.");
 
@@ -250,14 +251,14 @@ function AddWantForm({ onDone }: { onDone: () => void }) {
         <label className="label" htmlFor="want-category">
           Category <span className="text-faint">optional</span>
         </label>
-        <select id="want-category" className="field" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+        <Select id="want-category" className="field" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
           <option value="">Choose later</option>
           {wants.map((category) => (
             <option key={category.id} value={category.id}>
               {category.name}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div>
         <label className="label" htmlFor="want-url">
@@ -304,13 +305,13 @@ function SetAsideForm({ item, onDone }: { item: WishlistItem; onDone: () => void
       <p className="text-[13px] text-muted">
         Add <span className="num text-foreground">{formatCents(item.amountCents)}</span> — what {item.name} would have cost — to:
       </p>
-      <select className="field" aria-label="Goal" value={goalId} onChange={(event) => setGoalId(event.target.value)}>
+      <Select className="field" aria-label="Goal" value={goalId} onChange={(event) => setGoalId(event.target.value)}>
         {goals.map((option) => (
           <option key={option.id} value={option.id}>
             {option.name}
           </option>
         ))}
-      </select>
+      </Select>
       {contribute.error instanceof Error ? (
         <p role="alert" className="rounded-[8px] bg-red-bg px-3.5 py-3 text-[13px] text-red-fg">
           {contribute.error.message}

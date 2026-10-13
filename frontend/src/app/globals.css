@@ -203,15 +203,118 @@
     outline-offset: 2px;
     border-radius: 4px;
   }
-  input[type="date"]::-webkit-calendar-picker-indicator {
-    opacity: 0.5;
-    cursor: pointer;
-  }
-  .dark input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-  }
   input[type="number"]::-webkit-inner-spin-button {
     opacity: 0.4;
+  }
+
+  /* Checkbox: square ink box with a drawn check, sized by h-/w- utilities */
+  input[type="checkbox"] {
+    appearance: none;
+    display: inline-grid;
+    place-content: center;
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    border: 1px solid var(--ds-line-strong);
+    border-radius: 4px;
+    background: var(--ds-surface);
+    cursor: pointer;
+    transition:
+      background-color 150ms var(--ease-standard),
+      border-color 150ms var(--ease-standard);
+  }
+  input[type="checkbox"]::before {
+    content: "";
+    width: 0.62em;
+    height: 0.62em;
+    background: var(--ds-strong-foreground);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.25 5 8.75l4.5-5.5' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+    transform: scale(0);
+    transition: transform 150ms var(--ease-out-expo);
+  }
+  input[type="checkbox"]:hover:not(:disabled) {
+    border-color: var(--ds-muted);
+  }
+  input[type="checkbox"]:checked {
+    background: var(--ds-strong);
+    border-color: var(--ds-strong);
+  }
+  input[type="checkbox"]:checked::before {
+    transform: scale(1);
+  }
+  input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /* Range: hairline track with an ink fill (set --range-fill) and a ringed thumb */
+  input[type="range"] {
+    appearance: none;
+    height: 1.25rem;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(
+      to right,
+      var(--ds-strong) var(--range-fill, 0%),
+      var(--ds-surface-3) var(--range-fill, 0%)
+    );
+  }
+  input[type="range"]::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--ds-surface-3);
+  }
+  input[type="range"]::-moz-range-progress {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--ds-strong);
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -6px;
+    border: 1.5px solid var(--ds-strong);
+    border-radius: 999px;
+    background: var(--ds-surface);
+    box-shadow: 0 1px 3px rgb(22 21 20 / 0.12);
+    transition: transform 150ms var(--ease-standard);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--ds-strong);
+    border-radius: 999px;
+    background: var(--ds-surface);
+    box-shadow: 0 1px 3px rgb(22 21 20 / 0.12);
+  }
+  input[type="range"]:active::-webkit-slider-thumb {
+    transform: scale(1.15);
+  }
+  input[type="range"]:focus-visible {
+    border-radius: 999px;
+  }
+
+  /* Color: show the swatch only, no OS chrome */
+  input[type="color"] {
+    appearance: none;
+  }
+  input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  input[type="color"]::-webkit-color-swatch {
+    border: 1px solid var(--ds-line);
+    border-radius: 4px;
+  }
+  input[type="color"]::-moz-color-swatch {
+    border: 1px solid var(--ds-line);
+    border-radius: 4px;
   }
   ::-webkit-scrollbar {
     width: 10px;
@@ -251,12 +354,26 @@
     resize: none;
     line-height: 1.5;
   }
-  select.field {
-    appearance: none;
-    padding-right: 2.25rem;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5' stroke='%2371706f' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.85rem center;
+  /* Button-based fields (Select, DateInput) that open a token-styled popover */
+  .field-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .field-trigger:disabled {
+    cursor: not-allowed;
+  }
+  .field-trigger:focus-visible {
+    outline: none;
+    border-color: var(--ds-ink);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-ink) 8%, transparent);
+  }
+  .field-open,
+  .field-open:hover:not(:disabled) {
+    border-color: var(--ds-ink);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-ink) 8%, transparent);
   }
   .field::placeholder {
     color: var(--ds-faint);
@@ -269,7 +386,8 @@
     border-color: var(--ds-ink);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-ink) 8%, transparent);
   }
-  .field[aria-invalid="true"] {
+  .field[aria-invalid="true"],
+  .field[data-invalid="true"] {
     border-color: var(--ds-red-fg);
   }
   .field:disabled {

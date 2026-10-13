@@ -8,6 +8,7 @@ import type { Account } from "@/lib/api/accounts";
 import type { Goal, WithdrawalReason } from "@/lib/api/goals";
 import { formatCents, parseAmountInput } from "@/lib/utils/money";
 import { MoneyField } from "./GoalForm";
+import { Select } from "@/components/ui/Select";
 
 const REASONS: Array<{ value: WithdrawalReason; label: string }> = [
   { value: "emergency", label: "An emergency" },
@@ -68,13 +69,13 @@ export function GoalMoneyForm({
       {action === "add" ? (
         <div>
           <label className="label" htmlFor="goal-money-from">From</label>
-          <select id="goal-money-from" className="field" value={fromAccountId} onChange={(event) => setFromAccountId(event.target.value)}>
+          <Select id="goal-money-from" className="field" value={fromAccountId} onChange={(event) => setFromAccountId(event.target.value)}>
             {sources.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.id === goal.accountId ? `${account.name} (already there — just set it aside)` : account.name}
               </option>
             ))}
-          </select>
+          </Select>
           {fromAccountId !== goal.accountId ? (
             <p className="mt-1.5 text-[12px] text-muted">
               A transfer moves the money into {goal.account?.name ?? "the goal's account"}.

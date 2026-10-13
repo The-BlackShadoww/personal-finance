@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import type { Account, AccountKind, AccountPayload, AssetClass } from "@/lib/api/accounts";
 import { ACCOUNT_KINDS, ASSET_CLASSES, ASSET_KINDS, LIABILITY_KINDS } from "@/lib/accounts";
 import { currencySymbol, parseAmountInput } from "@/lib/utils/money";
+import { Select } from "@/components/ui/Select";
 
 type FormState = {
   name: string;
@@ -150,7 +151,7 @@ export function AccountForm({
         </div>
         <div>
           <label className="label" htmlFor="account-kind">Type</label>
-          <select
+          <Select
             id="account-kind"
             className="field"
             value={form.kind}
@@ -165,7 +166,7 @@ export function AccountForm({
                 ))}
               </optgroup>
             ))}
-          </select>
+          </Select>
           <p className="mt-1.5 text-[12px] text-muted">{meta.hint}</p>
         </div>
       </div>
@@ -209,7 +210,7 @@ export function AccountForm({
           <>
             <div>
               <label className="label" htmlFor="account-asset-class">Mostly invested in</label>
-              <select
+              <Select
                 id="account-asset-class"
                 className="field"
                 value={form.assetClass}
@@ -221,7 +222,7 @@ export function AccountForm({
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <PercentField
               id="account-fee"
