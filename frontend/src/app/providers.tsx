@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { ToastProvider } from "@/components/ui/Toast";
 import { ApiError } from "@/lib/api/client";
+import { useThemeSync } from "@/lib/hooks/useTheme";
 
 // A previous release persisted the query cache (financial data) under this
 // localStorage key. Query data is now kept in memory only; delete any copy an
@@ -37,6 +38,8 @@ export function Providers({ children }: ProvidersProps) {
         },
       }),
   );
+
+  useThemeSync();
 
   useEffect(() => {
     try {
