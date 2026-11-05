@@ -5,6 +5,7 @@ import {
   effectiveTargetDate,
   goalProgress,
   monthsToSave,
+  remainingToTarget,
   type FundableGoal,
 } from './goal-math';
 
@@ -94,6 +95,57 @@ describe('allocateIncome', () => {
       { goalId: 'a', amountCents: 8000 },
       { goalId: 'b', amountCents: 2000 },
     ]);
+  });
+});
+
+describe('remainingToTarget', () => {
+  const emergency = {
+    kind: 'emergency',
+    targetCents: 30000,
+    balanceCents: 30000,
+  };
+
+  it('keeps the emergency fund taking its share of every income', () => {
+    for (const balanceCents of [0, 29000, 30000, 500000]) {
+      const remainingToTargetCents = remainingToTarget({
+        ...emergency,
+        balanceCents,
+      });
+      expect(remainingToTargetCents).toBeNull();
+      expect(
+        allocateIncome(100000, [
+          goal({
+            id: 'emergency',
+            fundingRule: 'percent_of_income',
+            fundingPercentBps: 1000,
+            remainingToTargetCents,
+          }),
+        ]),
+      ).toEqual([{ goalId: 'emergency', amountCents: 10000 }]);
+    }
+  });
+
+  it('keeps a fixed-monthly emergency fund topped up, once per month', () => {
+    const fixed = goal({
+      id: 'emergency',
+      fundingRule: 'fixed_monthly',
+      fundingAmountCents: 150000,
+      remainingToTargetCents: remainingToTarget(emergency),
+    });
+    expect(allocateIncome(500000, [fixed])).toEqual([
+      { goalId: 'emergency', amountCents: 150000 },
+    ]);
+    expect(
+      allocateIncome(500000, [{ ...fixed, autoThisPeriodCents: 150000 }]),
+    ).toEqual([]);
+  });
+
+  it('still caps goals with a chosen target', () => {
+    expect(remainingToTarget({ ...emergency, kind: 'sinking' })).toBe(0);
+    expect(
+      remainingToTarget({ ...emergency, kind: 'long_term', balanceCents: 10000 }),
+    ).toBe(20000);
+    expect(remainingToTarget({ ...emergency, kind: 'other', targetCents: null })).toBeNull();
   });
 });
 
