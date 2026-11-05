@@ -531,54 +531,37 @@ export class GoalsService {
       year: income.transactionYear,
       month: income.transactionMonth,
     };
-    const [sums, averageEssential, stability] = await Promise.all([
-      tx.execute<{
-        goal_id: string;
-        balance: string;
-        auto_this_period: string;
-      }>(sql`
-        SELECT goal_id, SUM(amount_cents) AS balance,
-               COALESCE(SUM(amount_cents) FILTER (
-                 WHERE kind = 'auto' AND period_year = ${period.year} AND period_month = ${period.month}
-               ), 0) AS auto_this_period
-        FROM goal_contributions
-        WHERE user_id = ${userId}
-        GROUP BY goal_id
-      `),
-      funded.some((goal) => goal.kind === 'emergency')
-        ? this.averageEssentialMonthly(tx, userId, period)
-        : Promise.resolve(null),
-      this.incomeStability(userId),
-    ]);
+    const sums = await tx.execute<{
+      goal_id: string;
+      balance: string;
+      auto_this_period: string;
+    }>(sql`
+      SELECT goal_id, SUM(amount_cents) AS balance,
+             COALESCE(SUM(amount_cents) FILTER (
+               WHERE kind = 'auto' AND period_year = ${period.year} AND period_month = ${period.month}
+             ), 0) AS auto_this_period
+      FROM goal_contributions
+      WHERE user_id = ${userId}
+      GROUP BY goal_id
+    `);
     const sumByGoal = new Map(sums.map((row) => [row.goal_id, row]));
 
     const plan = allocateIncome(
       income.amountCents,
-      funded.map((goal) => {
-        const balance = Number(sumByGoal.get(goal.id)?.balance ?? 0);
-        const target =
-          goal.kind === 'emergency'
-            ? averageEssential === null
-              ? null
-              : averageEssential *
-                (goal.targetMonths ?? defaultEmergencyMonths(stability))
-            : goal.targetAmountCents;
-        return {
-          id: goal.id,
-          fundingRule: goal.fundingRule,
-          fundingPercentBps: goal.fundingPercentBps,
-          fundingAmountCents: goal.fundingAmountCents,
-          remainingToTargetCents: remainingToTarget({
-            kind: goal.kind,
-            fundingRule: goal.fundingRule,
-            targetCents: target,
-            balanceCents: balance,
-          }),
-          autoThisPeriodCents: Number(
-            sumByGoal.get(goal.id)?.auto_this_period ?? 0,
-          ),
-        };
-      }),
+      funded.map((goal) => ({
+        id: goal.id,
+        fundingRule: goal.fundingRule,
+        fundingPercentBps: goal.fundingPercentBps,
+        fundingAmountCents: goal.fundingAmountCents,
+        remainingToTargetCents: remainingToTarget({
+          kind: goal.kind,
+          targetCents: goal.targetAmountCents,
+          balanceCents: Number(sumByGoal.get(goal.id)?.balance ?? 0),
+        }),
+        autoThisPeriodCents: Number(
+          sumByGoal.get(goal.id)?.auto_this_period ?? 0,
+        ),
+      })),
     );
 
     const date = income.date.toISOString().slice(0, 10);

@@ -101,12 +101,11 @@ describe('allocateIncome', () => {
 describe('remainingToTarget', () => {
   const emergency = {
     kind: 'emergency',
-    fundingRule: 'percent_of_income' as const,
     targetCents: 30000,
     balanceCents: 30000,
   };
 
-  it('keeps a percent-funded emergency fund taking its share of every income', () => {
+  it('keeps the emergency fund taking its share of every income', () => {
     for (const balanceCents of [0, 29000, 30000, 500000]) {
       const remainingToTargetCents = remainingToTarget({
         ...emergency,
@@ -126,10 +125,22 @@ describe('remainingToTarget', () => {
     }
   });
 
-  it('still caps other emergency rules and goals with a chosen target', () => {
+  it('keeps a fixed-monthly emergency fund topped up, once per month', () => {
+    const fixed = goal({
+      id: 'emergency',
+      fundingRule: 'fixed_monthly',
+      fundingAmountCents: 150000,
+      remainingToTargetCents: remainingToTarget(emergency),
+    });
+    expect(allocateIncome(500000, [fixed])).toEqual([
+      { goalId: 'emergency', amountCents: 150000 },
+    ]);
     expect(
-      remainingToTarget({ ...emergency, fundingRule: 'fixed_monthly' }),
-    ).toBe(0);
+      allocateIncome(500000, [{ ...fixed, autoThisPeriodCents: 150000 }]),
+    ).toEqual([]);
+  });
+
+  it('still caps goals with a chosen target', () => {
     expect(remainingToTarget({ ...emergency, kind: 'sinking' })).toBe(0);
     expect(
       remainingToTarget({ ...emergency, kind: 'long_term', balanceCents: 10000 }),
