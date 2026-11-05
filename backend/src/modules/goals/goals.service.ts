@@ -25,6 +25,7 @@ import {
   defaultEmergencyMonths,
   effectiveTargetDate,
   goalProgress,
+  remainingToTarget,
 } from './calc/goal-math';
 import {
   ContributeDto,
@@ -567,7 +568,12 @@ export class GoalsService {
           fundingRule: goal.fundingRule,
           fundingPercentBps: goal.fundingPercentBps,
           fundingAmountCents: goal.fundingAmountCents,
-          remainingToTargetCents: target === null ? null : target - balance,
+          remainingToTargetCents: remainingToTarget({
+            kind: goal.kind,
+            fundingRule: goal.fundingRule,
+            targetCents: target,
+            balanceCents: balance,
+          }),
           autoThisPeriodCents: Number(
             sumByGoal.get(goal.id)?.auto_this_period ?? 0,
           ),

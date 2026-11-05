@@ -12,11 +12,29 @@ export type FundableGoal = {
 };
 
 /**
+ * How much more income may put into a goal; null means no limit. An emergency
+ * fund funded by a percent of income is never capped: its target is only an
+ * estimate that moves with essential spending, and the user asked for that
+ * share of every income.
+ */
+export function remainingToTarget(goal: {
+  kind: string;
+  fundingRule: FundingRule;
+  targetCents: number | null;
+  balanceCents: number;
+}): number | null {
+  if (goal.kind === 'emergency' && goal.fundingRule === 'percent_of_income') {
+    return null;
+  }
+  return goal.targetCents === null ? null : goal.targetCents - goal.balanceCents;
+}
+
+/**
  * Pay yourself first: shares an income out to goals in priority order
  * (`goals` must already be sorted). Percent goals take their share of the
  * income; fixed-monthly goals take whatever their monthly amount still lacks
- * this period. No goal is filled past its target, and the total never
- * exceeds the income.
+ * this period. No goal is filled past its remaining target (see
+ * `remainingToTarget`), and the total never exceeds the income.
  */
 export function allocateIncome(
   incomeCents: number,
