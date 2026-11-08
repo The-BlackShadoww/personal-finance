@@ -2,6 +2,28 @@
 
 A modern, full-stack personal finance application for tracking income and expenses, organizing spending by category, setting monthly budgets, and exporting financial reports. The application is multi-tenant, providing secure, isolated data for each user.
 
+**Live demo:** [bank-ar.vercel.app](https://bank-ar.vercel.app) · Built by [Ashikur Rahman](https://ashikurrahman.vercel.app), planned and written with Claude Code as my AI pair programmer.
+
+![Dashboard: available to spend, savings rate and monthly review prompt](docs/screenshots/dashboard.png)
+
+## Key decisions
+
+- **Money is stored as integer minor units** (`bigint` cents), never floating point, and formatted per ISO 4217 currency with optional lakh/crore grouping.
+- **The refresh token is a first-party, httpOnly cookie.** The browser calls `/api/v1` on the Next.js origin and Next.js rewrites to the API, so middleware can read the cookie and protect routes.
+- **Two-factor secrets are encrypted at rest**, with their own key separate from the JWT secrets.
+- **A nonce-based Content-Security-Policy** is set on every page request.
+- **All money math lives in pure `calc/` modules**, away from controllers and the database, so it can be unit-tested on its own.
+- **Rate limits use Redis when it's available**, so limits hold across several API instances. Without Redis they fall back to memory.
+
+## Tests
+
+```bash
+cd backend
+npm test
+```
+
+13 unit-test files cover currency formatting, account balances, budget plan math, goal funding, recurrence schedules, the health score, net worth, the next-best-action engine, spending insights, the monthly review, and income and investment calculations.
+
 ---
 
 ## Features
@@ -87,7 +109,7 @@ A modern, full-stack personal finance application for tracking income and expens
 ## Repository Structure
 
 ```text
-PF/
+personal-finance/
 ├── backend/                # NestJS REST API, Drizzle schema, and migrations
 ├── frontend/               # Next.js client app (App Router)
 ├── docker-compose.yml      # Local PostgreSQL and Redis
