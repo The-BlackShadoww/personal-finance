@@ -187,7 +187,7 @@ erDiagram
 - Sinking funds (with target date, optional yearly repeat, optional linked spending category).
 - Long-term and custom goals.
 - Fund with % of each income, fixed monthly amount, or manual top-ups.
-- Income automatically shares itself out to funded goals in priority order (reorderable); Undo available.
+- Eligible income in a liquid asset account automatically shares itself out to funded goals in priority order (reorderable); the allocation never exceeds that income. Percent rules calculate from each income; fixed monthly rules fill the remaining monthly amount. Regular goal targets cap automatic contributions, while the emergency fund's estimated target does not cap them. Undo available.
 - Contributions (add) and withdrawals (with required reason).
 - Archive / restore / delete goals; emergency fund cannot be deleted.
 
@@ -221,7 +221,9 @@ erDiagram
 
 #### Frontend & UI
 - Responsive layout with desktop sidebar and mobile navigation.
-- Dark mode and light mode switcher with system preference fallback.
+- Dark mode and light mode switcher with system preference fallback and saved preference restored across page refreshes.
+- Shared custom select and date-picker controls replace native form menus where used. Selects support keyboard navigation and optional search for longer lists; date inputs use a calendar popover.
+- Account opening balances and low-balance thresholds accept decimal amounts.
 - Carbon-inspired design tokens; compact typography; animated skeleton loaders.
 - Tabbed settings page (Profile, Security & 2FA, Preferences, Financial Profile, Categories, Account configuration).
 - Onboarding guide for new users (`/guide`).
